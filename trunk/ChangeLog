@@ -23,6 +23,7 @@ Version SVN trunk (?)
   * src/Serialization.cpp, src/Serialization.h:
     - Hide pure internal declarations from header file to avoid numerous
       compiler warnings when building and linking against the public API.
+    - Fixed comparision logic bug
 
   * src/RIFF.cpp, src/RIFF.h:
     - Fix: Calling File::SetMode() left an undefined file handle on Windows and
@@ -95,7 +96,7 @@ Version 4.1.0 (25 Nov 2017)
       larger than 4 GB).
     - Exception class now has a variadic constructor which allows to add
       textual format specifiers like with printf().
-      
+
   * src/RIFF.cpp, src/RIFF.h:
     - added support for RIFF files larger than 4 GB, by default the required
       internal RIFF file offset size is automatically detected (that is RIFF

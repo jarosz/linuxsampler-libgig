@@ -1,7 +1,7 @@
 /***************************************************************************
  *                                                                         *
- *   Copyright (C) 2017 Christian Schoenebeck                              *
- *                      <cuse@users.sourceforge.net>                       *
+ *   Copyright (C) 2017-2019 Christian Schoenebeck                         *
+ *                           <cuse@users.sourceforge.net>                  *
  *                                                                         *
  *   This library is part of libgig.                                       *
  *                                                                         *
@@ -290,11 +290,11 @@ namespace Serialization {
     bool DataType::operator<(const DataType& other) const {
         return m_baseTypeName  < other.m_baseTypeName ||
               (m_baseTypeName == other.m_baseTypeName &&
-               m_customTypeName  < other.m_customTypeName ||
+              (m_customTypeName  < other.m_customTypeName ||
               (m_customTypeName == other.m_customTypeName &&
-               m_size  < other.m_size ||
+              (m_size  < other.m_size ||
               (m_size == other.m_size &&
-               m_isPointer < other.m_isPointer)));
+               m_isPointer < other.m_isPointer)))));
     }
 
     /** @brief Greater than comparison.
@@ -577,11 +577,11 @@ namespace Serialization {
     bool Member::operator<(const Member& other) const {
         return m_uid  < other.m_uid ||
               (m_uid == other.m_uid &&
-               m_offset  < other.m_offset ||
+              (m_offset  < other.m_offset ||
               (m_offset == other.m_offset &&
-               m_name  < other.m_name ||
+              (m_name  < other.m_name ||
               (m_name == other.m_name &&
-               m_type < other.m_type)));
+               m_type < other.m_type)))));
     }
 
     /** @brief Greater than comparison.
