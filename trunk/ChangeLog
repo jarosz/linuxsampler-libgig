@@ -27,6 +27,7 @@ Version SVN trunk (?)
     - Hide pure internal declarations from header file to avoid numerous
       compiler warnings when building and linking against the public API.
     - Fixed comparision logic bug
+    - Fixed memory leak in DataType::customTypeName().
 
   * src/RIFF.cpp, src/RIFF.h:
     - Fix: Calling File::SetMode() left an undefined file handle on Windows and

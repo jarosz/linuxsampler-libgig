@@ -404,9 +404,11 @@ namespace Serialization {
     String DataType::customTypeName(bool demangle) const {
         if (!demangle) return m_customTypeName;
         int status;
-        const char* result =
+        char* result =
             abi::__cxa_demangle(m_customTypeName.c_str(), 0, 0, &status);
-        return (status == 0) ? result : m_customTypeName;
+        String sResult = result;
+        free(result);
+        return (status == 0) ? sResult : m_customTypeName;
     }
 
     // *************** Member ***************
