@@ -20,6 +20,9 @@ Version SVN trunk (?)
       regular behaviour of playing release trigger sample on MIDI note-off
       events.
 
+  * src/DLS.cpp, src/DLS.h:
+    - File: Fixed implicitly allocated RIFF::File object never been freed.
+
   * src/Serialization.cpp, src/Serialization.h:
     - Hide pure internal declarations from header file to avoid numerous
       compiler warnings when building and linking against the public API.

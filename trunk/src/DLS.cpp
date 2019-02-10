@@ -2,7 +2,7 @@
  *                                                                         *
  *   libgig - C++ cross-platform Gigasampler format file access library    *
  *                                                                         *
- *   Copyright (C) 2003-2017 by Christian Schoenebeck                      *
+ *   Copyright (C) 2003-2019 by Christian Schoenebeck                      *
  *                              <cuse@users.sourceforge.net>               *
  *                                                                         *
  *   This library is free software; you can redistribute it and/or modify  *
@@ -1407,6 +1407,7 @@ namespace DLS {
      */
     File::File() : Resource(NULL, pRIFF = new RIFF::File(RIFF_TYPE_DLS)) {
         pRIFF->SetByteOrder(RIFF::endian_little);
+        bOwningRiff = true;
         pVersion = new version_t;
         pVersion->major   = 0;
         pVersion->minor   = 0;
@@ -1437,7 +1438,7 @@ namespace DLS {
     File::File(RIFF::File* pRIFF) : Resource(NULL, pRIFF) {
         if (!pRIFF) throw DLS::Exception("NULL pointer reference to RIFF::File object.");
         this->pRIFF = pRIFF;
-
+        bOwningRiff = false;
         RIFF::Chunk* ckVersion = pRIFF->GetSubChunk(CHUNK_ID_VERS);
         if (ckVersion) {
             pVersion = new version_t;
@@ -1509,6 +1510,8 @@ namespace DLS {
         if (pVersion) delete pVersion;
         for (std::list<RIFF::File*>::iterator i = ExtensionFiles.begin() ; i != ExtensionFiles.end() ; i++)
             delete *i;
+        if (bOwningRiff)
+            delete pRIFF;
     }
 
     Sample* File::GetFirstSample() {

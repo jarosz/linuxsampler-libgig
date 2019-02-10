@@ -2,7 +2,7 @@
  *                                                                         *
  *   libgig - C++ cross-platform Gigasampler format file access library    *
  *                                                                         *
- *   Copyright (C) 2003-2017 by Christian Schoenebeck                      *
+ *   Copyright (C) 2003-2019 by Christian Schoenebeck                      *
  *                              <cuse@users.sourceforge.net>               *
  *                                                                         *
  *   This library is free software; you can redistribute it and/or modify  *
@@ -522,7 +522,7 @@ namespace DLS {
             typedef std::list<Instrument*> InstrumentList;
 
             RIFF::File*              pRIFF;
-            std::list<RIFF::File*>   ExtensionFiles;
+            std::list<RIFF::File*>   ExtensionFiles; //FIXME: These should automatically be freed, since implicitly allocated.
             SampleList*              pSamples;
             SampleList::iterator     SamplesIterator;
             InstrumentList*          pInstruments;
@@ -532,6 +532,7 @@ namespace DLS {
             uint32_t*                pWavePoolTable;
             uint32_t*                pWavePoolTableHi;
             bool                     b64BitWavePoolOffsets;
+            bool                     bOwningRiff; ///< If @c true then @c pRIFF was implicitly allocated by this class and hence pRIFF will automatically be freed by the @c DLS::File destructor in that case.
 
             virtual void LoadSamples();
             virtual void LoadInstruments();
