@@ -2,7 +2,7 @@
  *                                                                         *
  *   libgig - C++ cross-platform Gigasampler format file access library    *
  *                                                                         *
- *   Copyright (C) 2003-2017 by Christian Schoenebeck                      *
+ *   Copyright (C) 2003-2019 by Christian Schoenebeck                      *
  *                              <cuse@users.sourceforge.net>               *
  *                                                                         *
  *   This library is free software; you can redistribute it and/or modify  *
@@ -70,7 +70,10 @@ typedef unsigned __int64 uint64_t;
 
 #ifdef WIN32
 # if (_WIN32 && !_WIN64) || (__GNUC__ && !(__x86_64__ || __ppc64__)) /* if 32 bit windows compilation */
-#  define _WIN32_WINNT 0x0501 /* Win XP (no service pack): required for 32 bit compilation for GetFileSizeEx() to be declared by windows.h */
+#  if _WIN32_WINNT < 0x0501
+#   undef _WIN32_WINNT
+#   define _WIN32_WINNT 0x0501 /* Win XP (no service pack): required for 32 bit compilation for GetFileSizeEx() to be declared by windows.h */
+#  endif
 # endif
 # include <windows.h>
   typedef unsigned int   uint;

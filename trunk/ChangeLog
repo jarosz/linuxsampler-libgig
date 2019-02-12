@@ -32,6 +32,7 @@ Version SVN trunk (?)
   * src/RIFF.cpp, src/RIFF.h:
     - Fix: Calling File::SetMode() left an undefined file handle on Windows and
       caused a resource leak
+    - Avoid compiler warning when building for 32 bit windows.
 
   * src/tools/gigdump.cpp:
     - Added command line option --instrument-names which causes only
