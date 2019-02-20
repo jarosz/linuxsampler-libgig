@@ -1,7 +1,7 @@
 /***************************************************************************
  *                                                                         *
- *   Copyright (C) 2017 Christian Schoenebeck                              *
- *                      <cuse@users.sourceforge.net>                       *
+ *   Copyright (C) 2017-2019 Christian Schoenebeck                         *
+ *                           <cuse@users.sourceforge.net>                  *
  *                                                                         *
  *   This library is part of libgig.                                       *
  *                                                                         *
@@ -441,8 +441,7 @@ namespace Serialization {
         template<typename T>
         static String rawCppTypeNameOf(const T& data) {
             #if defined _MSC_VER // Microsoft compiler ...
-            # warning type_info::raw_name() demangling has not been tested yet with Microsoft compiler! Feedback appreciated!
-            String name = typeid(data).raw_name(); //NOTE: I haven't checked yet what MSC actually outputs here exactly
+            String name = typeid(data).raw_name();
             #else // i.e. especially GCC and clang ...
             String name = typeid(data).name();
             #endif

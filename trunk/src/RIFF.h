@@ -54,7 +54,7 @@
 # include <unistd.h>
 #endif // POSIX
 
-#ifdef _MSC_VER
+#if defined _MSC_VER && _MSC_VER < 1600
 // Visual C++ 2008 doesn't have stdint.h
 typedef __int8 int8_t;
 typedef __int16 int16_t;

@@ -31,8 +31,12 @@
 #include <assert.h>
 #include <string.h> // for memcpy()
 #include <stdlib.h> // for atof()
-#include <cxxabi.h>
-
+#ifdef _MSC_VER
+# include <windows.h>
+# include <dbghelp.h>
+#else
+# include <cxxabi.h>
+#endif
 #include "helper.h"
 
 #define LIBGIG_EPOCH_TIME ((time_t)0)
@@ -403,12 +407,25 @@ namespace Serialization {
      */
     String DataType::customTypeName(bool demangle) const {
         if (!demangle) return m_customTypeName;
+#ifdef _MSC_VER
+        const size_t MAXLENGTH = 1024;
+        char result[MAXLENGTH];
+
+        //Skip the first char
+        size_t size = UnDecorateSymbolName(m_customTypeName.c_str() +1, result, MAXLENGTH, UNDNAME_32_BIT_DECODE | UNDNAME_NO_ARGUMENTS);
+        if (size)
+        {
+            return result;
+        }
+        return m_customTypeName;
+#else
         int status;
         char* result =
             abi::__cxa_demangle(m_customTypeName.c_str(), 0, 0, &status);
         String sResult = result;
         free(result);
         return (status == 0) ? sResult : m_customTypeName;
+#endif
     }
 
     // *************** Member ***************

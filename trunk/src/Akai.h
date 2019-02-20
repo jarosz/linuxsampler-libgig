@@ -2,7 +2,7 @@
   libakai - C++ cross-platform akai sample disk reader
   Copyright (C) 2002-2003 Sébastien Métrot
 
-  Linux port by Christian Schoenebeck <cuse@users.sourceforge.net> 2003-2014
+  Linux port by Christian Schoenebeck <cuse@users.sourceforge.net> 2003-2019
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -43,8 +43,9 @@
 #include <fstream>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/fcntl.h>
-
+#ifndef _MSC_VER
+# include <sys/fcntl.h>
+#endif
 #if defined(_CARBON_) || defined(__APPLE__) || LINUX
 # include <sys/ioctl.h>
 # include <unistd.h>

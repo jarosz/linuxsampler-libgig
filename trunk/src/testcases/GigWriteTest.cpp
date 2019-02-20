@@ -207,7 +207,8 @@ void GigWriteTest::testArticulationsOfCreatedGigFile() {
             CPPUNIT_ASSERT(pRegion->VelocityRange.low  == iInstrument - 1);
             CPPUNIT_ASSERT(pRegion->VelocityRange.high == iInstrument);
             CPPUNIT_ASSERT(pRegion->KeyGroup  == iInstrument - 1);
-            gig::DimensionRegion* pDimensionRegion = pRegion->GetDimensionRegionByValue((uint[8]){0,0,0,0,0,0,0,0});
+            const uint dimValues[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+            gig::DimensionRegion* pDimensionRegion = pRegion->GetDimensionRegionByValue(dimValues);
             CPPUNIT_ASSERT(pDimensionRegion);
             CPPUNIT_ASSERT(pDimensionRegion->pSample->pInfo->Name == sOughtToBe);
             iInstrument++;

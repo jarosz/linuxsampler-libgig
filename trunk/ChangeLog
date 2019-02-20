@@ -1,5 +1,10 @@
 Version SVN trunk (?)
 
+  * general changes:
+    - Added MSVC build support (anonymous patch from mailing list).
+    - Introduced CMake build support (yet constrained for building with MSVC)
+      (anonymous patch from mailing list).
+
   * src/gig.cpp, src/gig.h:
     - Fixed Doxygen API comments for enum types (currently latest Doxygen
       [v1.8.13] only supports C comments in macro arguments expansion, but

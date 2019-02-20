@@ -149,10 +149,32 @@ Compiling for Linux
   On success, the resulting rpm(s) can usually be found under the proper
   "/usr/src/<rpmdir>/RPMS/<arch>" directory.
 
-Compiling for Windows
-=====================
+Compiling for Windows using CMake
+=================================
+The easiest way is to compile is to use vcpkg (https://github.com/Microsoft/vcpkg)
+to install libsndfile (required) and cppunit (optional). In the vcpkg install dir
+type:
+.\vcpkg.exe install libsndfile cppunit [--triplet x64-windows]
 
-  libgig and its tools can be compiled for Windows using Bloodshed Dev-C++,
+This should install the libraries in vcpkg, add the triplet option if you wish to
+get the 64bit libraries.
+
+In an empty directory type:
+cmake <libgig source dir> -DCMAKE_TOOLCHAIN_FILE=<vcpkg dir>\scripts\buildsystems\vcpkg.cmake
+[-G"Visual Studio 15 2017 Win64"]
+
+Use the -G option to select the visual studio version and whether to compile for
+64bits.
+
+This will create libgig.sln file which you can open in visual studio or you can use
+the following command line to compile:
+
+cmake --build . --config <Release|Debug|MinRelSize|RelWithDebInfo>
+
+Compiling for Windows using Dev-C++
+===================================
+
+  libgig and its tools can also be compiled on Windows using Bloodshed Dev-C++,
   which is a free (GPL) C++ integrated development environment for Windows.
   It is also possible to use MSYS from MinGW, which allows you to use
   './configure && make' like the linux builds.
