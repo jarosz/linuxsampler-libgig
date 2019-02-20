@@ -19,6 +19,8 @@ Version SVN trunk (?)
       DimensionRegion::NoNoteOffReleaseTrigger which allows to disable the
       regular behaviour of playing release trigger sample on MIDI note-off
       events.
+    - Introduced support for writing extension files (.gx01, .gx02, ...)
+      (original patch by Ivan Maguidhir).
 
   * src/DLS.cpp, src/DLS.h:
     - File: Fixed implicitly allocated RIFF::File object never been freed.

@@ -60,6 +60,8 @@
 # define CHUNK_ID_COLH	0x636F6C68
 # define CHUNK_ID_ARTL	0x6172746C
 # define CHUNK_ID_ART2	0x61727432
+# define CHUNK_ID_XFIL	0x7866696C
+# define CHUNK_ID_DOXF	0x646F7866
 #else  // little endian
 # define RIFF_TYPE_DLS	0x20534C44
 # define LIST_TYPE_WVPL	0x6C707677
@@ -94,6 +96,8 @@
 # define CHUNK_ID_COLH	0x686C6F63
 # define CHUNK_ID_ARTL	0x6C747261
 # define CHUNK_ID_ART2	0x32747261
+# define CHUNK_ID_XFIL	0x6C696678
+# define CHUNK_ID_DOXF	0x66786F64
 #endif // WORDS_BIGENDIAN
 
 #define DLS_WAVE_FORMAT_PCM			0x0001
@@ -352,6 +356,7 @@ namespace DLS {
             const Resource* GetParent() const { return pParent; }
             virtual void UpdateChunks(progress_t* pProgress);
             void GenerateDLSID();
+            static void GenerateDLSID(dlsid_t* pDLSID);
             virtual void CopyAssign(const Resource* orig);
         protected:
             Resource* pParent;

@@ -24,6 +24,7 @@
 #include "DLS.h"
 
 #include <algorithm>
+#include <vector>
 #include <time.h>
 
 #ifdef __APPLE__
@@ -493,12 +494,15 @@ namespace DLS {
      * Generates a new DLSID for the resource.
      */
     void Resource::GenerateDLSID() {
-#if defined(WIN32) || defined(__APPLE__) || defined(HAVE_UUID_GENERATE)
-
+        #if defined(WIN32) || defined(__APPLE__) || defined(HAVE_UUID_GENERATE)
         if (!pDLSID) pDLSID = new dlsid_t;
+        GenerateDLSID(pDLSID);
+        #endif
+    }
 
+    void Resource::GenerateDLSID(dlsid_t* pDLSID) {
+#if defined(WIN32) || defined(__APPLE__) || defined(HAVE_UUID_GENERATE)
 #ifdef WIN32
-
         UUID uuid;
         UuidCreate(&uuid);
         pDLSID->ulData1 = uuid.Data1;
@@ -1773,12 +1777,132 @@ namespace DLS {
             __notify_progress(&subprogress, 1.0); // notify subprogress done
         }
 
+        // if there are any extension files, gather which ones are regular
+        // extension files used as wave pool files (.gx00, .gx01, ... , .gx98)
+        // and which one is probably a convolution (GigaPulse) file (always to
+        // be saved as .gx99)
+        std::list<RIFF::File*> poolFiles;  // < for (.gx00, .gx01, ... , .gx98) files
+        RIFF::File* pGigaPulseFile = NULL; // < for .gx99 file
+        if (!ExtensionFiles.empty()) {
+            std::list<RIFF::File*>::iterator it = ExtensionFiles.begin();
+            for (; it != ExtensionFiles.end(); ++it) {
+                //FIXME: the .gx99 file is always used by GSt for convolution
+                // data (GigaPulse); so we should better detect by subchunk
+                // whether the extension file is intended for convolution
+                // instead of checkking for a file name, because the latter does
+                // not work for saving new gigs created from scratch
+                const std::string oldName = (*it)->GetFileName();
+                const bool isGigaPulseFile = (extensionOfPath(oldName) == "gx99");
+                if (isGigaPulseFile)
+                    pGigaPulseFile = *it;
+                else
+                    poolFiles.push_back(*it);
+            }
+        }
+
+        // update the 'xfil' chunk which describes all extension files (wave
+        // pool files) except the .gx99 file
+        if (!poolFiles.empty()) {
+            const int n = poolFiles.size();
+            const int iHeaderSize = 4;
+            const int iEntrySize = 144;
+
+            // make sure chunk exists, and with correct size
+            RIFF::Chunk* ckXfil = pRIFF->GetSubChunk(CHUNK_ID_XFIL);
+            if (ckXfil)
+                ckXfil->Resize(iHeaderSize + n * iEntrySize);
+            else
+                ckXfil = pRIFF->AddSubChunk(CHUNK_ID_XFIL, iHeaderSize + n * iEntrySize);
+
+            uint8_t* pData = (uint8_t*) ckXfil->LoadChunkData();
+
+            // re-assemble the chunk's content
+            store32(pData, n);
+            std::list<RIFF::File*>::iterator itExtFile = poolFiles.begin();
+            for (int i = 0, iOffset = 4; i < n;
+                 ++itExtFile, ++i, iOffset += iEntrySize)
+            {
+                // update the filename string and 5 byte extension of each extension file
+                std::string file = lastPathComponent(
+                    (*itExtFile)->GetFileName()
+                );
+                if (file.length() + 6 > 128)
+                    throw Exception("Fatal error, extension filename length exceeds 122 byte maximum");
+                uint8_t* pStrings = &pData[iOffset];
+                memset(pStrings, 0, 128);
+                memcpy(pStrings, file.c_str(), file.length());
+                pStrings += file.length() + 1;
+                std::string ext = file.substr(file.length()-5);
+                memcpy(pStrings, ext.c_str(), 5);
+                // update the dlsid of the extension file
+                uint8_t* pId = &pData[iOffset + 128];
+                dlsid_t id;
+                RIFF::Chunk* ckDLSID = (*itExtFile)->GetSubChunk(CHUNK_ID_DLID);
+                if (ckDLSID) {
+                    ckDLSID->Read(&id.ulData1, 1, 4);
+                    ckDLSID->Read(&id.usData2, 1, 2);
+                    ckDLSID->Read(&id.usData3, 1, 2);
+                    ckDLSID->Read(id.abData, 8, 1);
+                } else {
+                    ckDLSID = (*itExtFile)->AddSubChunk(CHUNK_ID_DLID, 16);
+                    Resource::GenerateDLSID(&id);
+                    uint8_t* pData = (uint8_t*)ckDLSID->LoadChunkData();
+                    store32(&pData[0], id.ulData1);
+                    store16(&pData[4], id.usData2);
+                    store16(&pData[6], id.usData3);
+                    memcpy(&pData[8], id.abData, 8);
+                }
+                store32(&pId[0], id.ulData1);
+                store16(&pId[4], id.usData2);
+                store16(&pId[6], id.usData3);
+                memcpy(&pId[8], id.abData, 8);
+            }
+        } else {
+            // in case there was a 'xfil' chunk, remove it
+            RIFF::Chunk* ckXfil = pRIFF->GetSubChunk(CHUNK_ID_XFIL);
+            if (ckXfil) pRIFF->DeleteSubChunk(ckXfil);
+        }
+
+        // update the 'doxf' chunk which describes a .gx99 extension file
+        // which contains convolution data (GigaPulse)
+        if (pGigaPulseFile) {
+            RIFF::Chunk* ckDoxf = pRIFF->GetSubChunk(CHUNK_ID_DOXF);
+            if (!ckDoxf) ckDoxf = pRIFF->AddSubChunk(CHUNK_ID_DOXF, 148);
+
+            uint8_t* pData = (uint8_t*) ckDoxf->LoadChunkData();
+
+            // update the dlsid from the extension file
+            uint8_t* pId = &pData[132];
+            RIFF::Chunk* ckDLSID = pGigaPulseFile->GetSubChunk(CHUNK_ID_DLID);
+            if (!ckDLSID) { //TODO: auto generate DLS ID if missing
+                throw Exception("Fatal error, GigaPulse file does not contain a DLS ID chunk");
+            } else {
+                dlsid_t id;
+                // read DLS ID from extension files's DLS ID chunk
+                uint8_t* pData = (uint8_t*) ckDLSID->LoadChunkData();
+                id.ulData1 = load32(&pData[0]);
+                id.usData2 = load16(&pData[4]);
+                id.usData3 = load16(&pData[6]);
+                memcpy(id.abData, &pData[8], 8);
+                // store DLS ID to 'doxf' chunk
+                store32(&pId[0], id.ulData1);
+                store16(&pId[4], id.usData2);
+                store16(&pId[6], id.usData3);
+                memcpy(&pId[8], id.abData, 8);
+            }
+        } else {
+            // in case there was a 'doxf' chunk, remove it
+            RIFF::Chunk* ckDoxf = pRIFF->GetSubChunk(CHUNK_ID_DOXF);
+            if (ckDoxf) pRIFF->DeleteSubChunk(ckDoxf);
+        }
+
         // the RIFF file to be written might now been grown >= 4GB or might
         // been shrunk < 4GB, so we might need to update the wave pool offset
         // size and thus accordingly we would need to resize the wave pool
         // chunk
         const file_offset_t finalFileSize = pRIFF->GetRequiredFileSize();
-        const bool bRequires64Bit = (finalFileSize >> 32) != 0;
+        const bool bRequires64Bit = (finalFileSize >> 32) != 0 || // < native 64 bit gig file
+                                     poolFiles.size() > 0;        // < 32 bit gig file where the hi 32 bits are used as extension file nr
         if (b64BitWavePoolOffsets != bRequires64Bit) {
             b64BitWavePoolOffsets = bRequires64Bit;
             iPtblOffsetSize = (b64BitWavePoolOffsets) ? 8 : 4;
@@ -1804,18 +1928,46 @@ namespace DLS {
      * @param pProgress - optional: callback function for progress notification
      */
     void File::Save(const String& Path, progress_t* pProgress) {
+        // calculate number of tasks to notify progress appropriately
+        const size_t nExtFiles = ExtensionFiles.size();
+        const float tasks = 2.f + nExtFiles;
+
+        // save extension files (if required)
+        if (!ExtensionFiles.empty()) {
+            // for assembling path of extension files to be saved to
+            const std::string folder = parentPath(Path);
+            const std::string baseName = pathWithoutExtension(Path);
+            // save the individual extension files
+            std::list<RIFF::File*>::iterator it = ExtensionFiles.begin();
+            for (int i = 0; it != ExtensionFiles.end(); ++i, ++it) {
+                // divide local progress into subprogress
+                progress_t subprogress;
+                __divide_progress(pProgress, &subprogress, tasks, 0.f + i); // subdivided into amount of extension files
+                //FIXME: the .gx99 file is always used by GSt for convolution
+                // data (GigaPulse); so we should better detect by subchunk
+                // whether the extension file is intended for convolution
+                // instead of checkking for a file name, because the latter does
+                // not work for saving new gigs created from scratch
+                const std::string oldName = (*it)->GetFileName();
+                const bool isGigaPulseFile = (extensionOfPath(oldName) == "gx99");
+                std::string ext = (isGigaPulseFile) ? ".gx99" : strPrint(".gx02d", i+1);
+                std::string newPath = concatPath(folder, baseName) + ext;
+                // save extension file to its new location
+                (*it)->Save(newPath, &subprogress);
+            }
+        }
+
         {
             // divide local progress into subprogress
             progress_t subprogress;
-            __divide_progress(pProgress, &subprogress, 2.f, 0.f); // arbitrarily subdivided into 50% of total progress
+            __divide_progress(pProgress, &subprogress, tasks, 1.f + nExtFiles); // arbitrarily subdivided into 50% (minus extension files progress)
             // do the actual work
             UpdateChunks(&subprogress);
-            
         }
         {
             // divide local progress into subprogress
             progress_t subprogress;
-            __divide_progress(pProgress, &subprogress, 2.f, 1.f); // arbitrarily subdivided into 50% of total progress
+            __divide_progress(pProgress, &subprogress, tasks, 2.f + nExtFiles); // arbitrarily subdivided into 50% (minus extension files progress)
             // do the actual work
             pRIFF->Save(Path, &subprogress);
         }
@@ -1834,17 +1986,33 @@ namespace DLS {
      * @throws DLS::Exception  if any kind of DLS specific error occurred
      */
     void File::Save(progress_t* pProgress) {
+        // calculate number of tasks to notify progress appropriately
+        const size_t nExtFiles = ExtensionFiles.size();
+        const float tasks = 2.f + nExtFiles;
+
+        // save extension files (if required)
+        if (!ExtensionFiles.empty()) {
+            std::list<RIFF::File*>::iterator it = ExtensionFiles.begin();
+            for (int i = 0; it != ExtensionFiles.end(); ++i, ++it) {
+                // divide local progress into subprogress
+                progress_t subprogress;
+                __divide_progress(pProgress, &subprogress, tasks, 0.f + i); // subdivided into amount of extension files
+                // save extension file
+                (*it)->Save(&subprogress);
+            }
+        }
+
         {
             // divide local progress into subprogress
             progress_t subprogress;
-            __divide_progress(pProgress, &subprogress, 2.f, 0.f); // arbitrarily subdivided into 50% of total progress
+            __divide_progress(pProgress, &subprogress, tasks, 1.f + nExtFiles); // arbitrarily subdivided into 50% (minus extension files progress)
             // do the actual work
             UpdateChunks(&subprogress);
         }
         {
             // divide local progress into subprogress
             progress_t subprogress;
-            __divide_progress(pProgress, &subprogress, 2.f, 1.f); // arbitrarily subdivided into 50% of total progress
+            __divide_progress(pProgress, &subprogress, tasks, 2.f + nExtFiles); // arbitrarily subdivided into 50% (minus extension files progress)
             // do the actual work
             pRIFF->Save(&subprogress);
         }
@@ -1943,19 +2111,10 @@ namespace DLS {
         pWavePoolTable   = new uint32_t[WavePoolCount];
         pWavePoolTableHi = new uint32_t[WavePoolCount];
         if (!pSamples) return;
-        // update offsets int wave pool table
+        // update offsets in wave pool table
         RIFF::List* wvpl = pRIFF->GetSubList(LIST_TYPE_WVPL);
         uint64_t wvplFileOffset = wvpl->GetFilePos();
-        if (b64BitWavePoolOffsets) {
-            SampleList::iterator iter = pSamples->begin();
-            SampleList::iterator end  = pSamples->end();
-            for (int i = 0 ; iter != end ; ++iter, i++) {
-                uint64_t _64BitOffset = (*iter)->pWaveList->GetFilePos() - wvplFileOffset - LIST_HEADER_SIZE(pRIFF->GetFileOffsetSize());
-                (*iter)->ullWavePoolOffset = _64BitOffset;
-                pWavePoolTableHi[i] = (uint32_t) (_64BitOffset >> 32);
-                pWavePoolTable[i]   = (uint32_t) _64BitOffset;
-            }
-        } else { // conventional 32 bit offsets
+        if (!b64BitWavePoolOffsets) { // conventional 32 bit offsets (and no extension files) ...
             SampleList::iterator iter = pSamples->begin();
             SampleList::iterator end  = pSamples->end();
             for (int i = 0 ; iter != end ; ++iter, i++) {
@@ -1963,9 +2122,55 @@ namespace DLS {
                 (*iter)->ullWavePoolOffset = _64BitOffset;
                 pWavePoolTable[i] = (uint32_t) _64BitOffset;
             }
+        } else { // a) native 64 bit offsets without extension files or b) 32 bit offsets with extension files ...
+            if (ExtensionFiles.empty()) { // native 64 bit offsets (and no extension files) [not compatible with GigaStudio] ...
+                SampleList::iterator iter = pSamples->begin();
+                SampleList::iterator end  = pSamples->end();
+                for (int i = 0 ; iter != end ; ++iter, i++) {
+                    uint64_t _64BitOffset = (*iter)->pWaveList->GetFilePos() - wvplFileOffset - LIST_HEADER_SIZE(pRIFF->GetFileOffsetSize());
+                    (*iter)->ullWavePoolOffset = _64BitOffset;
+                    pWavePoolTableHi[i] = (uint32_t) (_64BitOffset >> 32);
+                    pWavePoolTable[i]   = (uint32_t) _64BitOffset;
+                }
+            } else { // 32 bit offsets with extension files (GigaStudio legacy support) ...
+                // the main gig and the extension files may contain wave data
+                std::vector<RIFF::File*> poolFiles;
+                poolFiles.push_back(pRIFF);
+                poolFiles.insert(poolFiles.end(), ExtensionFiles.begin(), ExtensionFiles.end());
+
+                RIFF::File* pCurPoolFile = NULL;
+                int fileNo = 0;
+                int waveOffset = 0;
+                SampleList::iterator iter = pSamples->begin();
+                SampleList::iterator end  = pSamples->end();
+                for (int i = 0 ; iter != end ; ++iter, i++) {
+                    RIFF::File* pPoolFile = (*iter)->pWaveList->GetFile();
+                    // if this sample is located in the same pool file as the
+                    // last we reuse the previously computed fileNo and waveOffset
+                    if (pPoolFile != pCurPoolFile) { // it is a different pool file than the last sample ...
+                        pCurPoolFile = pPoolFile;
+
+                        std::vector<RIFF::File*>::iterator sIter;
+                        sIter = std::find(poolFiles.begin(), poolFiles.end(), pPoolFile);
+                        if (sIter != poolFiles.end())
+                            fileNo = std::distance(poolFiles.begin(), sIter);
+                        else
+                            throw DLS::Exception("Fatal error, unknown pool file");
+
+                        RIFF::List* extWvpl = pCurPoolFile->GetSubList(LIST_TYPE_WVPL);
+                        if (!extWvpl)
+                            throw DLS::Exception("Fatal error, pool file has no 'wvpl' list chunk");
+                        waveOffset = extWvpl->GetFilePos() + LIST_HEADER_SIZE(pCurPoolFile->GetFileOffsetSize());
+                    }
+                    uint64_t _64BitOffset = (*iter)->pWaveList->GetFilePos() - waveOffset;
+                    // pWavePoolTableHi stores file number when extension files are in use
+                    pWavePoolTableHi[i] = (uint32_t) fileNo;
+                    pWavePoolTable[i]   = (uint32_t) _64BitOffset;
+                    (*iter)->ullWavePoolOffset = _64BitOffset;
+                }
+            }
         }
     }
-
 
 
 // *************** Exception ***************

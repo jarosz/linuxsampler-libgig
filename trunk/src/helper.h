@@ -2,7 +2,7 @@
  *                                                                         *
  *   libgig - C++ cross-platform Gigasampler format file access library    *
  *                                                                         *
- *   Copyright (C) 2003-2017 by Christian Schoenebeck                      *
+ *   Copyright (C) 2003-2019 by Christian Schoenebeck                      *
  *                              <cuse@users.sourceforge.net>               *
  *                                                                         *
  *   This library is free software; you can redistribute it and/or modify  *
@@ -49,6 +49,18 @@ template<class T> inline std::string ToString(T o) {
     std::stringstream ss;
     ss << o;
     return ss.str();
+}
+
+// Behaves as printf() just that it returns it as string instead of writing to stdout.
+inline std::string strPrint(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    char* buf = NULL;
+    vasprintf(&buf, fmt, args);
+    std::string res = buf;
+    if (buf) free(buf);
+    va_end(args);
+    return res;
 }
 
 inline std::string toLowerCase(std::string s) {
@@ -126,6 +138,17 @@ inline void store32(uint8_t* pData, uint32_t data) {
     pData[1] = data >> 8;
     pData[2] = data >> 16;
     pData[3] = data >> 24;
+}
+
+/**
+ * Loads a 16 bit integer in memory using little-endian format.
+ *
+ * @param pData - memory pointer
+ * @returns 16 bit data word
+ */
+inline uint16_t load16(uint8_t* pData) {
+    return uint16_t(pData[0]) |
+           uint16_t(pData[1]) << 8;
 }
 
 /**
@@ -272,6 +295,65 @@ inline void __divide_progress(RIFF::progress_t* pParentProgress, RIFF::progress_
         pSubProgress->__range_min = pParentProgress->__range_min + totalrange * currentTask / totalTasks;
         pSubProgress->__range_max = pSubProgress->__range_min + totalrange / totalTasks;
     }
+}
+
+#ifdef _WIN32
+# define NATIVE_PATH_SEPARATOR '\\'
+#else
+# define NATIVE_PATH_SEPARATOR '/'
+#endif
+
+/**
+ * Returns the owning path of the given path (its parent path). So for example
+ * passing "/some/path" would return "/some".
+ */
+inline std::string parentPath(const std::string path) {
+    std::size_t pos = path.find_last_of(NATIVE_PATH_SEPARATOR);
+    return (pos == std::string::npos) ? path : path.substr(0, pos);
+}
+
+/**
+ * Returns the last (lowest) portion of the given path. So for example passing
+ * "/some/path" would return "path".
+ */
+inline std::string lastPathComponent(const std::string path) {
+    std::size_t pos = path.find_last_of(NATIVE_PATH_SEPARATOR);
+    return (pos == std::string::npos) ? path : path.substr(pos+1);
+}
+
+/**
+ * Returns the given path with the type extension being stripped from its end.
+ * So for example passing "/some/path.foo" would return "/some/path".
+ */
+inline std::string pathWithoutExtension(const std::string path) {
+    std::size_t posSep = path.find_last_of(NATIVE_PATH_SEPARATOR);
+    std::size_t posBase = (posSep == std::string::npos) ? 0 : posSep+1;
+    std::size_t posDot = path.find_last_of(".", posBase);
+    return (posDot != std::string::npos && posDot > posBase)
+           ? path.substr(0, posDot) : path;
+}
+
+/**
+ * Returns the type extension of the given path. So for example passing
+ * "/some/path.foo" would return "foo".
+ */
+inline std::string extensionOfPath(const std::string path) {
+    std::size_t posSep = path.find_last_of(NATIVE_PATH_SEPARATOR);
+    std::size_t posBase = (posSep == std::string::npos) ? 0 : posSep+1;
+    std::size_t posDot = path.find_last_of(".", posBase);
+    return (posDot != std::string::npos && posDot > posBase)
+           ? path.substr(posDot+1) : "";
+}
+
+/**
+ * Combines the two given paths with each other. So for example passing
+ * "/some/path" and "/another/one" would return "/some/path/another/one".
+ */
+inline std::string concatPath(const std::string path1, const std::string path2) {
+    return (!path1.empty() && *(path1.rbegin()) != NATIVE_PATH_SEPARATOR &&
+            !path2.empty() && *(path2.begin())  != NATIVE_PATH_SEPARATOR)
+        ? path1 + NATIVE_PATH_SEPARATOR + path2
+        : path1 + path2;
 }
 
 #endif // __LIBGIG_HELPER_H__

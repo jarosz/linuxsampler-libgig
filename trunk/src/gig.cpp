@@ -2,7 +2,7 @@
  *                                                                         *
  *   libgig - C++ cross-platform Gigasampler format file access library    *
  *                                                                         *
- *   Copyright (C) 2003-2018 by Christian Schoenebeck                      *
+ *   Copyright (C) 2003-2019 by Christian Schoenebeck                      *
  *                              <cuse@users.sourceforge.net>               *
  *                                                                         *
  *   This library is free software; you can redistribute it and/or modify  *
@@ -5702,20 +5702,78 @@ namespace {
         int iSampleIndex  = 0;
         int iTotalSamples = WavePoolCount;
 
-        // check if samples should be loaded from extension files
-        // (only for old gig files < 2 GB)
-        int lastFileNo = 0;
-        if (!file->IsNew() && !(file->GetCurrentFileSize() >> 31)) {
-            for (int i = 0 ; i < WavePoolCount ; i++) {
-                if (pWavePoolTableHi[i] > lastFileNo) lastFileNo = pWavePoolTableHi[i];
+        // just for assembling path of optional extension files to be read
+        const std::string folder = parentPath(pRIFF->GetFileName());
+        const std::string baseName = pathWithoutExtension(pRIFF->GetFileName());
+
+        // the main gig file and the extension files (.gx01, ... , .gx98) may
+        // contain wave data (wave pool)
+        std::vector<RIFF::File*> poolFiles;
+        poolFiles.push_back(pRIFF);
+
+        // get info about all extension files
+        RIFF::Chunk* ckXfil = pRIFF->GetSubChunk(CHUNK_ID_XFIL);
+        if (ckXfil) { // there are extension files (.gx01, ... , .gx98) ...
+            const uint32_t n = ckXfil->ReadInt32();
+            for (int i = 0; i < n; i++) {
+                // read the filename and load the extension file
+                std::string name;
+                ckXfil->ReadString(name, 128);
+                std::string path = concatPath(folder, name);
+                RIFF::File* pExtFile = new RIFF::File(path);
+                // check that the dlsids match
+                RIFF::Chunk* ckDLSID = pExtFile->GetSubChunk(CHUNK_ID_DLID);
+                if (ckDLSID) {
+                    ::DLS::dlsid_t idExpected;
+                    idExpected.ulData1 = ckXfil->ReadInt32();
+                    idExpected.usData2 = ckXfil->ReadInt16();
+                    idExpected.usData3 = ckXfil->ReadInt16();
+                    ckXfil->Read(idExpected.abData, 8, 1);
+                    ::DLS::dlsid_t idFound;
+                    ckDLSID->Read(&idFound.ulData1, 1, 4);
+                    ckDLSID->Read(&idFound.usData2, 1, 2);
+                    ckDLSID->Read(&idFound.usData3, 1, 2);
+                    ckDLSID->Read(idFound.abData, 8, 1);
+                    if (memcmp(&idExpected, &idFound, 16) != 0)
+                        throw gig::Exception("dlsid mismatch for extension file: %s", path.c_str());
+                }
+                poolFiles.push_back(pExtFile);
+                ExtensionFiles.push_back(pExtFile);
             }
         }
-        String name(pRIFF->GetFileName());
-        int nameLen = (int) name.length();
-        char suffix[6];
-        if (nameLen > 4 && name.substr(nameLen - 4) == ".gig") nameLen -= 4;
 
-        for (int fileNo = 0 ; ; ) {
+        // check if a .gx99 (GigaPulse) file exists
+        RIFF::Chunk* ckDoxf = pRIFF->GetSubChunk(CHUNK_ID_DOXF);
+        if (ckDoxf) { // there is a .gx99 (GigaPulse) file ...
+            std::string path = baseName + ".gx99";
+            RIFF::File* pExtFile = new RIFF::File(path);
+
+            // skip unused int and filename
+            ckDoxf->SetPos(132, RIFF::stream_whence_t::stream_curpos);
+
+            // check that the dlsids match
+            RIFF::Chunk* ckDLSID = pExtFile->GetSubChunk(CHUNK_ID_DLID);
+            if (ckDLSID) {
+                ::DLS::dlsid_t idExpected;
+                idExpected.ulData1 = ckDoxf->ReadInt32();
+                idExpected.usData2 = ckDoxf->ReadInt16();
+                idExpected.usData3 = ckDoxf->ReadInt16();
+                ckDoxf->Read(idExpected.abData, 8, 1);
+                ::DLS::dlsid_t idFound;
+                ckDLSID->Read(&idFound.ulData1, 1, 4);
+                ckDLSID->Read(&idFound.usData2, 1, 2);
+                ckDLSID->Read(&idFound.usData3, 1, 2);
+                ckDLSID->Read(idFound.abData, 8, 1);
+                if (memcmp(&idExpected, &idFound, 16) != 0)
+                    throw gig::Exception("dlsid mismatch for GigaPulse file: %s", path.c_str());
+            }
+            poolFiles.push_back(pExtFile);
+            ExtensionFiles.push_back(pExtFile);
+        }
+
+        // load samples from extension files (if required)
+        for (int i = 0; i < poolFiles.size(); i++) {
+            RIFF::File* file = poolFiles[i];
             RIFF::List* wvpl = file->GetSubList(LIST_TYPE_WVPL);
             if (wvpl) {
                 file_offset_t wvplFileOffset = wvpl->GetFilePos();
@@ -5727,22 +5785,13 @@ namespace {
                         __notify_progress(pProgress, subprogress);
 
                         file_offset_t waveFileOffset = wave->GetFilePos();
-                        pSamples->push_back(new Sample(this, wave, waveFileOffset - wvplFileOffset, fileNo, iSampleIndex));
+                        pSamples->push_back(new Sample(this, wave, waveFileOffset - wvplFileOffset, i, iSampleIndex));
 
                         iSampleIndex++;
                     }
                     wave = wvpl->GetNextSubList();
                 }
-
-                if (fileNo == lastFileNo) break;
-
-                // open extension file (*.gx01, *.gx02, ...)
-                fileNo++;
-                sprintf(suffix, ".gx%02d", fileNo);
-                name.replace(nameLen, 5, suffix);
-                file = new RIFF::File(name);
-                ExtensionFiles.push_back(file);
-            } else break;
+            }
         }
 
         __notify_progress(pProgress, 1.0); // notify done
