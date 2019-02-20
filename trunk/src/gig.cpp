@@ -5749,7 +5749,7 @@ namespace {
             RIFF::File* pExtFile = new RIFF::File(path);
 
             // skip unused int and filename
-            ckDoxf->SetPos(132, RIFF::stream_whence_t::stream_curpos);
+            ckDoxf->SetPos(132, RIFF::stream_curpos);
 
             // check that the dlsids match
             RIFF::Chunk* ckDLSID = pExtFile->GetSubChunk(CHUNK_ID_DLID);
