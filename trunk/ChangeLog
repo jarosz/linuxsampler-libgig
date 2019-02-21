@@ -4,6 +4,13 @@ Version SVN trunk (?)
     - Added MSVC build support (anonymous patch from mailing list).
     - Introduced CMake build support (yet constrained for building with MSVC)
       (anonymous patch from mailing list).
+    - Fix: Don't automatically delete RIFF chunks from DLS/gig classes'
+      destructors. Added new virtual method DeleteChunks() to those classes
+      for this which must be explicitly called instead to remove their RIFF
+      chunks.
+    - Fix: Many methods of DLS/gig classes assumed a RIFF chunk read position
+      of zero; which is unsafe per se.
+    - Added C++11 "override" keyword where appropriate.
 
   * src/gig.cpp, src/gig.h:
     - Fixed Doxygen API comments for enum types (currently latest Doxygen
@@ -26,9 +33,13 @@ Version SVN trunk (?)
       events.
     - Introduced support for writing extension files (.gx01, .gx02, ...)
       (original patch by Ivan Maguidhir).
+    - Many gig classes derive now from DLS::Storage (see DLS changes below).
 
   * src/DLS.cpp, src/DLS.h:
     - File: Fixed implicitly allocated RIFF::File object never been freed.
+    - Added new abstract interface base class DLS::Storage which is derived by
+      the respective classes for implementing (the old) UpdateChunks() and the
+      new DeleteChunks() method.
 
   * src/Serialization.cpp, src/Serialization.h:
     - Hide pure internal declarations from header file to avoid numerous
@@ -40,6 +51,7 @@ Version SVN trunk (?)
     - Fix: Calling File::SetMode() left an undefined file handle on Windows and
       caused a resource leak
     - Avoid compiler warning when building for 32 bit windows.
+    - Added new method progress_t::subdivide().
 
   * src/tools/gigdump.cpp:
     - Added command line option --instrument-names which causes only

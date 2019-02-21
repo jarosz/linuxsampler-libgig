@@ -274,27 +274,79 @@ namespace DLS {
             friend class Articulation;
     };
 
+    /** @brief Abstract base class for all classes using RIFF::Chunks for persistency.
+     *
+     * This abstract base class defines the general interface for all classes
+     * which are using RIFF::Chunks to actually load and store their data
+     * persistently from/to disk.
+     */
+    class Storage {
+    public:
+        /** @brief Apply object's changes to the respective RIF::Chunks.
+         *
+         * This abstract interface method is intended to be implemented by the
+         * deriving classes by updating the respective RIFF chunks associated
+         * with the object such that those RIFF chunks reflect the object's
+         * current data (i.e. object's current member variables). So the purpose
+         * of this method is to prepare for saving the object's current state
+         * persistently to the actual RIFF file.
+         *
+         * After returning from this method the changes are just scheduled to be
+         * saved to the RIFF file, it is required to call File::Save()
+         * subsequently to make the changes actually persistent on file level.
+         *
+         * Usually there is no need to call this method directly from an
+         * application. This method is called automatically by libgig if one of
+         * the respective API methods is called to save the file persistently
+         * to disk (i.e. DLS::File::Save() or gig::File::Save()).
+         *
+         * @param pProgress - callback function for progress notification
+         */
+        virtual void UpdateChunks(progress_t* pProgress) = 0;
+
+        /** @brief Remove all RIFF chunks associated with this object.
+         *
+         * This abstract interface method is intended to be implemented by the
+         * deriving classes by removing every RIFF::Chunk the deriving overall
+         * object is using to store the object in the final RIFF::File. In other
+         * words: the intention is to remove the deriving class(es)'s object
+         * persistently from the currently open file.
+         *
+         * Note that the RIFF::Chunks deletions is just scheduled after
+         * returning from this method. You have to call File::Save() to make
+         * these changes persistent on file level.
+         *
+         * Usually there is no need to call this method directly from an
+         * application. This method is called automatically by libgig if one of
+         * the respective API methods is called to remove the respective object
+         * persistently (i.e. File::DeleteInstrument() or File::DeleteSample()).
+         */
+        virtual void DeleteChunks() = 0;
+    };
+
     /** Provides access to the defined connections used for the synthesis model. */
-    class Articulation {
+    class Articulation : public Storage {
         public:
             Connection*  pConnections; ///< Points to the beginning of a <i>Connection</i> array.
             uint32_t     Connections;  ///< Reflects the number of Connections.
 
             Articulation(RIFF::Chunk* artl);
             virtual ~Articulation();
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
+            virtual void DeleteChunks() OVERRIDE;
         protected:
             RIFF::Chunk* pArticulationCk;
             uint32_t     HeaderSize;
     };
 
     /** Abstract base class for classes that provide articulation information (thus for <i>Instrument</i> and <i>Region</i> class). */
-    class Articulator {
+    class Articulator : public Storage {
         public:
             Articulator(RIFF::List* ParentList);
             Articulation* GetFirstArticulation();
             Articulation* GetNextArticulation();
-            virtual void  UpdateChunks(progress_t* pProgress);
+            virtual void  UpdateChunks(progress_t* pProgress) OVERRIDE;
+            virtual void  DeleteChunks() OVERRIDE;
             virtual void  CopyAssign(const Articulator* orig);
         protected:
             typedef std::list<Articulation*> ArticulationList;
@@ -307,7 +359,7 @@ namespace DLS {
     };
 
     /** Optional information for DLS files, instruments, samples, etc. */
-    class Info {
+    class Info : public Storage {
         public:
             String Name;             ///< <INAM-ck>. Stores the title of the subject of the file, such as, Seattle From Above.
             String ArchivalLocation; ///< <IARL-ck>. Indicates where the subject of the file is stored.
@@ -336,7 +388,8 @@ namespace DLS {
             Info(RIFF::List* list);
             void SetFixedStringLengths(const string_length_t* lengths);
             virtual ~Info();
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
+            virtual void DeleteChunks() OVERRIDE;
             virtual void CopyAssign(const Info* orig);
         private:
             RIFF::List*            pResourceListChunk;
@@ -347,14 +400,15 @@ namespace DLS {
     };
 
     /** Abstract base class which encapsulates data structures which all DLS resources are able to provide. */
-    class Resource {
+    class Resource : public Storage {
         public:
             Info*    pInfo;  ///< Points (in any case) to an <i>Info</i> object, providing additional, optional infos and comments.
             dlsid_t* pDLSID; ///< Points to a <i>dlsid_t</i> structure if the file provided a DLS ID else is <i>NULL</i>.
 
             Resource* GetParent() { return pParent; }
             const Resource* GetParent() const { return pParent; }
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
+            virtual void DeleteChunks() OVERRIDE;
             void GenerateDLSID();
             static void GenerateDLSID(dlsid_t* pDLSID);
             virtual void CopyAssign(const Resource* orig);
@@ -367,7 +421,7 @@ namespace DLS {
     };
 
     /** Abstract base class which provides mandatory informations about sample players in general. */
-    class Sampler {
+    class Sampler : public Storage {
         public:
             uint8_t        UnityNote;
             int16_t        FineTune;
@@ -380,7 +434,8 @@ namespace DLS {
             void AddSampleLoop(sample_loop_t* pLoopDef);
             void DeleteSampleLoop(sample_loop_t* pLoopDef);
             virtual void SetGain(int32_t gain);
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
+            virtual void DeleteChunks() OVERRIDE;
             virtual void CopyAssign(const Sampler* orig);
         protected:
             RIFF::List*    pParentList;
@@ -416,7 +471,8 @@ namespace DLS {
             file_offset_t SetPos(file_offset_t SampleCount, RIFF::stream_whence_t Whence = RIFF::stream_start);
             file_offset_t Read(void* pBuffer, file_offset_t SampleCount);
             file_offset_t Write(void* pBuffer, file_offset_t SampleCount);
-            virtual void  UpdateChunks(progress_t* pProgress);
+            virtual void  UpdateChunks(progress_t* pProgress) OVERRIDE;
+            virtual void  DeleteChunks() OVERRIDE;
             virtual void  CopyAssign(const Sample* orig);
 
         protected:
@@ -448,7 +504,8 @@ namespace DLS {
             Sample*     GetSample();
             void        SetSample(Sample* pSample);
             virtual void SetKeyRange(uint16_t Low, uint16_t High);
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
+            virtual void DeleteChunks() OVERRIDE;
             virtual void CopyAssign(const Region* orig);
         protected:
             RIFF::List* pCkRegion;
@@ -476,7 +533,8 @@ namespace DLS {
             Region*  GetNextRegion();
             Region*  AddRegion();
             void     DeleteRegion(Region* pRegion);
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
+            virtual void DeleteChunks() OVERRIDE;
             virtual void CopyAssign(const Instrument* orig);
         protected:
             typedef std::list<Region*> RegionList;
@@ -518,7 +576,7 @@ namespace DLS {
             Instrument* AddInstrument();
             void        DeleteInstrument(Instrument* pInstrument);
             RIFF::File* GetExtensionFile(int index);
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
             virtual void Save(const String& Path, progress_t* pProgress = NULL);
             virtual void Save(progress_t* pProgress = NULL);
             virtual ~File();

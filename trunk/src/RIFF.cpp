@@ -2,7 +2,7 @@
  *                                                                         *
  *   libgig - C++ cross-platform Gigasampler format file access library    *
  *                                                                         *
- *   Copyright (C) 2003-2018 by Christian Schoenebeck                      *
+ *   Copyright (C) 2003-2019 by Christian Schoenebeck                      *
  *                              <cuse@users.sourceforge.net>               *
  *                                                                         *
  *   This library is free software; you can redistribute it and/or modify  *
@@ -62,6 +62,23 @@ namespace RIFF {
         custom      = NULL;
         __range_min = 0.0f;
         __range_max = 1.0f;
+    }
+
+    /**
+     * Divides this progress task into the requested amount of sub-progress
+     * tasks and returns a vector with those subprogress tasks.
+     *
+     * @param iSubtasks - total amount sub tasks this task should be subdivided
+     * @returns subtasks
+     */
+    std::vector<progress_t> progress_t::subdivide(int iSubtasks) {
+        std::vector<progress_t> v;
+        for (int i = 0; i < iSubtasks; ++i) {
+            progress_t p;
+            __divide_progress(this, &p, iSubtasks, i);
+            v.push_back(p);
+        }
+        return v;
     }
 
 

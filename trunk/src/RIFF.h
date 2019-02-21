@@ -36,10 +36,17 @@
 # define DEBUG 0
 #endif
 
+#ifndef OVERRIDE
+# if defined(__cplusplus) && __cplusplus >= 201103L
+#  define OVERRIDE override
+# endif
+#endif
+
 #include <string>
 #include <list>
 #include <map>
 #include <set>
+#include <vector>
 #include <iostream>
 #include <stdarg.h>
 
@@ -211,6 +218,7 @@ namespace RIFF {
         float __range_min;             ///< Only for internal usage, do not modify!
         float __range_max;             ///< Only for internal usage, do not modify!
         progress_t();
+        std::vector<progress_t> subdivide(int iSubtasks);
     };
 
     /** @brief Ordinary RIFF Chunk

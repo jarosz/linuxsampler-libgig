@@ -122,6 +122,9 @@ namespace DLS {
             artl->GetChunkID() != CHUNK_ID_ARTL) {
               throw DLS::Exception("<artl-ck> or <art2-ck> chunk expected");
         }
+
+        artl->SetPos(0);
+
         HeaderSize  = artl->ReadUint32();
         Connections = artl->ReadUint32();
         artl->SetPos(HeaderSize);
@@ -162,6 +165,18 @@ namespace DLS {
             store16(&pData[HeaderSize + i * iEntrySize + 6], c.transform);
             store32(&pData[HeaderSize + i * iEntrySize + 8], c.scale);
         }
+    }
+
+    /** @brief Remove all RIFF chunks associated with this Articulation object.
+     *
+     * At the moment Articulation::DeleteChunks() does nothing. It is
+     * recommended to call this method explicitly though from deriving classes's
+     * own overridden implementation of this method to avoid potential future
+     * compatiblity issues.
+     *
+     * See Storage::DeleteChunks() for details.
+     */
+    void Articulation::DeleteChunks() {
     }
 
 
@@ -232,7 +247,21 @@ namespace DLS {
             }
         }
     }
-    
+
+    /** @brief Remove all RIFF chunks associated with this Articulator object.
+     *
+     * See Storage::DeleteChunks() for details.
+     */
+    void Articulator::DeleteChunks() {
+        if (pArticulations) {
+            ArticulationList::iterator iter = pArticulations->begin();
+            ArticulationList::iterator end  = pArticulations->end();
+            for (; iter != end; ++iter) {
+                (*iter)->DeleteChunks();
+            }
+        }
+    }
+
     /**
      * Not yet implemented in this version, since the .gig format does
      * not need to copy DLS articulators and so far nobody used pure
@@ -399,7 +428,19 @@ namespace DLS {
         SaveString(CHUNK_ID_ISRF, lstINFO, SourceForm, String(""));
         SaveString(CHUNK_ID_ITCH, lstINFO, Technician, String(""));
     }
-    
+
+    /** @brief Remove all RIFF chunks associated with this Info object.
+     *
+     * At the moment Info::DeleteChunks() does nothing. It is
+     * recommended to call this method explicitly though from deriving classes's
+     * own overridden implementation of this method to avoid potential future
+     * compatiblity issues.
+     *
+     * See Storage::DeleteChunks() for details.
+     */
+    void Info::DeleteChunks() {
+    }
+
     /**
      * Make a deep copy of the Info object given by @a orig and assign it to
      * this object.
@@ -450,6 +491,8 @@ namespace DLS {
 
         RIFF::Chunk* ckDLSID = lstResource->GetSubChunk(CHUNK_ID_DLID);
         if (ckDLSID) {
+            ckDLSID->SetPos(0);
+
             pDLSID = new dlsid_t;
             ckDLSID->Read(&pDLSID->ulData1, 1, 4);
             ckDLSID->Read(&pDLSID->usData2, 1, 2);
@@ -462,6 +505,18 @@ namespace DLS {
     Resource::~Resource() {
         if (pDLSID) delete pDLSID;
         if (pInfo)  delete pInfo;
+    }
+
+    /** @brief Remove all RIFF chunks associated with this Resource object.
+     *
+     * At the moment Resource::DeleteChunks() does nothing. It is recommended
+     * to call this method explicitly though from deriving classes's own
+     * overridden implementation of this method to avoid potential future
+     * compatiblity issues.
+     *
+     * See Storage::DeleteChunks() for details.
+     */
+    void Resource::DeleteChunks() {
     }
 
     /** @brief Update chunks with current Resource data.
@@ -555,6 +610,8 @@ namespace DLS {
         pParentList       = ParentList;
         RIFF::Chunk* wsmp = ParentList->GetSubChunk(CHUNK_ID_WSMP);
         if (wsmp) {
+            wsmp->SetPos(0);
+
             uiHeaderSize   = wsmp->ReadUint32();
             UnityNote      = wsmp->ReadUint16();
             FineTune       = wsmp->ReadInt16();
@@ -627,6 +684,18 @@ namespace DLS {
             store32(&pData[uiHeaderSize + i * 16 + 8], pSampleLoops[i].LoopStart);
             store32(&pData[uiHeaderSize + i * 16 + 12], pSampleLoops[i].LoopLength);
         }
+    }
+
+    /** @brief Remove all RIFF chunks associated with this Sampler object.
+     *
+     * At the moment Sampler::DeleteChunks() does nothing. It is
+     * recommended to call this method explicitly though from deriving classes's
+     * own overridden implementation of this method to avoid potential future
+     * compatiblity issues.
+     *
+     * See Storage::DeleteChunks() for details.
+     */
+    void Sampler::DeleteChunks() {
     }
 
     /**
@@ -721,6 +790,8 @@ namespace DLS {
         pCkFormat = waveList->GetSubChunk(CHUNK_ID_FMT);
         pCkData   = waveList->GetSubChunk(CHUNK_ID_DATA);
         if (pCkFormat) {
+            pCkFormat->SetPos(0);
+
             // common fields
             FormatTag              = pCkFormat->ReadUint16();
             Channels               = pCkFormat->ReadUint16();
@@ -751,14 +822,31 @@ namespace DLS {
 
     /** @brief Destructor.
      *
-     * Removes RIFF chunks associated with this Sample and frees all
-     * memory occupied by this sample.
+     * Frees all memory occupied by this sample.
      */
     Sample::~Sample() {
-        RIFF::List* pParent = pWaveList->GetParent();
-        pParent->DeleteSubChunk(pWaveList);
+        if (pCkData)
+            pCkData->ReleaseChunkData();
+        if (pCkFormat)
+            pCkFormat->ReleaseChunkData();
     }
-    
+
+    /** @brief Remove all RIFF chunks associated with this Sample object.
+     *
+     * See Storage::DeleteChunks() for details.
+     */
+    void Sample::DeleteChunks() {
+        // handle base class
+        Resource::DeleteChunks();
+
+        // handle own RIFF chunks
+        if (pWaveList) {
+            RIFF::List* pParent = pWaveList->GetParent();
+            pParent->DeleteSubChunk(pWaveList);
+            pWaveList = NULL;
+        }
+    }
+
     /**
      * Make a deep copy of the Sample object given by @a orig (without the
      * actual sample waveform data however) and assign it to this object.
@@ -1003,6 +1091,8 @@ namespace DLS {
         // articulation information
         RIFF::Chunk* rgnh = rgnList->GetSubChunk(CHUNK_ID_RGNH);
         if (rgnh) {
+            rgnh->SetPos(0);
+
             rgnh->Read(&KeyRange, 2, 2);
             rgnh->Read(&VelocityRange, 2, 2);
             FormatOptionFlags = rgnh->ReadUint16();
@@ -1025,6 +1115,8 @@ namespace DLS {
         // sample information
         RIFF::Chunk* wlnk = rgnList->GetSubChunk(CHUNK_ID_WLNK);
         if (wlnk) {
+            wlnk->SetPos(0);
+
             WaveLinkOptionFlags = wlnk->ReadUint16();
             PhaseGroup          = wlnk->ReadUint16();
             Channel             = wlnk->ReadUint32();
@@ -1043,11 +1135,28 @@ namespace DLS {
 
     /** @brief Destructor.
      *
-     * Removes RIFF chunks associated with this Region.
+     * Intended to free up all memory occupied by this Region object. ATM this
+     * destructor implementation does nothing though.
      */
     Region::~Region() {
-        RIFF::List* pParent = pCkRegion->GetParent();
-        pParent->DeleteSubChunk(pCkRegion);
+    }
+
+    /** @brief Remove all RIFF chunks associated with this Region object.
+     *
+     * See Storage::DeleteChunks() for details.
+     */
+    void Region::DeleteChunks() {
+        // handle base classes
+        Resource::DeleteChunks();
+        Articulator::DeleteChunks();
+        Sampler::DeleteChunks();
+
+        // handle own RIFF chunks
+        if (pCkRegion) {
+            RIFF::List* pParent = pCkRegion->GetParent();
+            pParent->DeleteSubChunk(pCkRegion);
+            pCkRegion = NULL;
+        }
     }
 
     Sample* Region::GetSample() {
@@ -1229,6 +1338,8 @@ namespace DLS {
         midi_locale_t locale;
         RIFF::Chunk* insh = pCkInstrument->GetSubChunk(CHUNK_ID_INSH);
         if (insh) {
+            insh->SetPos(0);
+
             Regions = insh->ReadUint32();
             insh->Read(&locale, 2, 4);
         } else { // 'insh' chunk missing
@@ -1300,6 +1411,7 @@ namespace DLS {
         if (iter == pRegions->end()) return;
         pRegions->erase(iter);
         Regions = (uint32_t) pRegions->size();
+        pRegion->DeleteChunks();
         delete pRegion;
     }
 
@@ -1344,8 +1456,7 @@ namespace DLS {
 
     /** @brief Destructor.
      *
-     * Removes RIFF chunks associated with this Instrument and frees all
-     * memory occupied by this instrument.
+     * Frees all memory occupied by this instrument.
      */
     Instrument::~Instrument() {
         if (pRegions) {
@@ -1357,11 +1468,33 @@ namespace DLS {
             }
             delete pRegions;
         }
-        // remove instrument's chunks
-        RIFF::List* pParent = pCkInstrument->GetParent();
-        pParent->DeleteSubChunk(pCkInstrument);
     }
-    
+
+    /** @brief Remove all RIFF chunks associated with this Instrument object.
+     *
+     * See Storage::DeleteChunks() for details.
+     */
+    void Instrument::DeleteChunks() {
+        // handle base classes
+        Resource::DeleteChunks();
+        Articulator::DeleteChunks();
+
+        // handle RIFF chunks of members
+        if (pRegions) {
+            RegionList::iterator it  = pRegions->begin();
+            RegionList::iterator end = pRegions->end();
+            for (; it != end; ++it)
+                (*it)->DeleteChunks();
+        }
+
+        // handle own RIFF chunks
+        if (pCkInstrument) {
+            RIFF::List* pParent = pCkInstrument->GetParent();
+            pParent->DeleteSubChunk(pCkInstrument);
+            pCkInstrument = NULL;
+        }
+    }
+
     void Instrument::CopyAssignCore(const Instrument* orig) {
         // handle base classes
         Resource::CopyAssign(orig);
@@ -1445,6 +1578,8 @@ namespace DLS {
         bOwningRiff = false;
         RIFF::Chunk* ckVersion = pRIFF->GetSubChunk(CHUNK_ID_VERS);
         if (ckVersion) {
+            ckVersion->SetPos(0);
+
             pVersion = new version_t;
             ckVersion->Read(pVersion, 4, 2);
         }
@@ -1452,6 +1587,7 @@ namespace DLS {
 
         RIFF::Chunk* colh = pRIFF->GetSubChunk(CHUNK_ID_COLH);
         if (!colh) throw DLS::Exception("Mandatory chunks in RIFF list chunk not found.");
+        colh->SetPos(0);
         Instruments = colh->ReadUint32();
 
         RIFF::Chunk* ptbl = pRIFF->GetSubChunk(CHUNK_ID_PTBL);
@@ -1462,6 +1598,8 @@ namespace DLS {
             WavePoolHeaderSize = 8;
             b64BitWavePoolOffsets = false;
         } else {
+            ptbl->SetPos(0);
+
             WavePoolHeaderSize = ptbl->ReadUint32();
             WavePoolCount  = ptbl->ReadUint32();
             pWavePoolTable = new uint32_t[WavePoolCount];
@@ -1535,11 +1673,13 @@ namespace DLS {
         if (!pSamples) pSamples = new SampleList;
         RIFF::List* wvpl = pRIFF->GetSubList(LIST_TYPE_WVPL);
         if (wvpl) {
-            file_offset_t wvplFileOffset = wvpl->GetFilePos();
+            file_offset_t wvplFileOffset = wvpl->GetFilePos() -
+                                           wvpl->GetPos(); // should be zero, but just to be sure
             RIFF::List* wave = wvpl->GetFirstSubList();
             while (wave) {
                 if (wave->GetListType() == LIST_TYPE_WAVE) {
-                    file_offset_t waveFileOffset = wave->GetFilePos();
+                    file_offset_t waveFileOffset = wave->GetFilePos() -
+                                                   wave->GetPos(); // should be zero, but just to be sure
                     pSamples->push_back(new Sample(this, wave, waveFileOffset - wvplFileOffset));
                 }
                 wave = wvpl->GetNextSubList();
@@ -1548,11 +1688,13 @@ namespace DLS {
         else { // Seen a dwpl list chunk instead of a wvpl list chunk in some file (officially not DLS compliant)
             RIFF::List* dwpl = pRIFF->GetSubList(LIST_TYPE_DWPL);
             if (dwpl) {
-                file_offset_t dwplFileOffset = dwpl->GetFilePos();
+                file_offset_t dwplFileOffset = dwpl->GetFilePos() -
+                                               dwpl->GetPos(); // should be zero, but just to be sure
                 RIFF::List* wave = dwpl->GetFirstSubList();
                 while (wave) {
                     if (wave->GetListType() == LIST_TYPE_WAVE) {
-                        file_offset_t waveFileOffset = wave->GetFilePos();
+                        file_offset_t waveFileOffset = wave->GetFilePos() -
+                                                       wave->GetPos(); // should be zero, but just to be sure
                         pSamples->push_back(new Sample(this, wave, waveFileOffset - dwplFileOffset));
                     }
                     wave = dwpl->GetNextSubList();
@@ -1591,6 +1733,7 @@ namespace DLS {
         SampleList::iterator iter = find(pSamples->begin(), pSamples->end(), pSample);
         if (iter == pSamples->end()) return;
         pSamples->erase(iter);
+        pSample->DeleteChunks();
         delete pSample;
     }
 
@@ -1650,6 +1793,7 @@ namespace DLS {
         InstrumentList::iterator iter = find(pInstruments->begin(), pInstruments->end(), pInstrument);
         if (iter == pInstruments->end()) return;
         pInstruments->erase(iter);
+        pInstrument->DeleteChunks();
         delete pInstrument;
     }
 
@@ -2113,12 +2257,17 @@ namespace DLS {
         if (!pSamples) return;
         // update offsets in wave pool table
         RIFF::List* wvpl = pRIFF->GetSubList(LIST_TYPE_WVPL);
-        uint64_t wvplFileOffset = wvpl->GetFilePos();
+        uint64_t wvplFileOffset = wvpl->GetFilePos() -
+                                  wvpl->GetPos(); // mandatory, since position might have changed
         if (!b64BitWavePoolOffsets) { // conventional 32 bit offsets (and no extension files) ...
             SampleList::iterator iter = pSamples->begin();
             SampleList::iterator end  = pSamples->end();
             for (int i = 0 ; iter != end ; ++iter, i++) {
-                uint64_t _64BitOffset = (*iter)->pWaveList->GetFilePos() - wvplFileOffset - LIST_HEADER_SIZE(pRIFF->GetFileOffsetSize());
+                uint64_t _64BitOffset =
+                    (*iter)->pWaveList->GetFilePos() -
+                    (*iter)->pWaveList->GetPos() - // should be zero, but just to be sure
+                    wvplFileOffset -
+                    LIST_HEADER_SIZE(pRIFF->GetFileOffsetSize());
                 (*iter)->ullWavePoolOffset = _64BitOffset;
                 pWavePoolTable[i] = (uint32_t) _64BitOffset;
             }
@@ -2127,7 +2276,11 @@ namespace DLS {
                 SampleList::iterator iter = pSamples->begin();
                 SampleList::iterator end  = pSamples->end();
                 for (int i = 0 ; iter != end ; ++iter, i++) {
-                    uint64_t _64BitOffset = (*iter)->pWaveList->GetFilePos() - wvplFileOffset - LIST_HEADER_SIZE(pRIFF->GetFileOffsetSize());
+                    uint64_t _64BitOffset =
+                        (*iter)->pWaveList->GetFilePos() -
+                        (*iter)->pWaveList->GetPos() - // should be zero, but just to be sure
+                        wvplFileOffset -
+                        LIST_HEADER_SIZE(pRIFF->GetFileOffsetSize());
                     (*iter)->ullWavePoolOffset = _64BitOffset;
                     pWavePoolTableHi[i] = (uint32_t) (_64BitOffset >> 32);
                     pWavePoolTable[i]   = (uint32_t) _64BitOffset;
@@ -2160,9 +2313,15 @@ namespace DLS {
                         RIFF::List* extWvpl = pCurPoolFile->GetSubList(LIST_TYPE_WVPL);
                         if (!extWvpl)
                             throw DLS::Exception("Fatal error, pool file has no 'wvpl' list chunk");
-                        waveOffset = extWvpl->GetFilePos() + LIST_HEADER_SIZE(pCurPoolFile->GetFileOffsetSize());
+                        waveOffset =
+                            extWvpl->GetFilePos() -
+                            extWvpl->GetPos() + // mandatory, since position might have changed
+                            LIST_HEADER_SIZE(pCurPoolFile->GetFileOffsetSize());
                     }
-                    uint64_t _64BitOffset = (*iter)->pWaveList->GetFilePos() - waveOffset;
+                    uint64_t _64BitOffset =
+                        (*iter)->pWaveList->GetFilePos() -
+                        (*iter)->pWaveList->GetPos() - // should be zero, but just to be sure
+                        waveOffset;
                     // pWavePoolTableHi stores file number when extension files are in use
                     pWavePoolTableHi[i] = (uint32_t) fileNo;
                     pWavePoolTable[i]   = (uint32_t) _64BitOffset;

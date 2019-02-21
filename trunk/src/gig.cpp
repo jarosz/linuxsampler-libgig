@@ -412,6 +412,8 @@ namespace {
 
         pCk3gix = waveList->GetSubChunk(CHUNK_ID_3GIX);
         if (pCk3gix) {
+            pCk3gix->SetPos(0);
+
             uint16_t iSampleGroup = pCk3gix->ReadInt16();
             pGroup = pFile->GetGroup(iSampleGroup);
         } else { // '3gix' chunk missing
@@ -421,6 +423,8 @@ namespace {
 
         pCkSmpl = waveList->GetSubChunk(CHUNK_ID_SMPL);
         if (pCkSmpl) {
+            pCkSmpl->SetPos(0);
+
             Manufacturer  = pCkSmpl->ReadInt32();
             Product       = pCkSmpl->ReadInt32();
             SamplePeriod  = pCkSmpl->ReadInt32();
@@ -467,6 +471,8 @@ namespace {
         Dithered          = false;
         TruncatedBits     = 0;
         if (Compressed) {
+            ewav->SetPos(0);
+
             uint32_t version = ewav->ReadInt32();
             if (version > 2 && BitDepth == 24) {
                 Dithered = ewav->ReadInt32();
@@ -1500,6 +1506,8 @@ namespace {
 
         RIFF::Chunk* _3ewa = _3ewl->GetSubChunk(CHUNK_ID_3EWA);
         if (_3ewa) { // if '3ewa' chunk exists
+            _3ewa->SetPos(0);
+
             _3ewa->ReadInt32(); // unknown, always == chunk size ?
             LFO3Frequency = (double) GIG_EXP_DECODE(_3ewa->ReadInt32());
             EG3Attack     = (double) GIG_EXP_DECODE(_3ewa->ReadInt32());
@@ -1735,6 +1743,8 @@ namespace {
         // chunk for own format extensions, these will *NOT* work with Gigasampler/GigaStudio !
         RIFF::Chunk* lsde = _3ewl->GetSubChunk(CHUNK_ID_LSDE);
         if (lsde) { // format extension for EG behavior options
+            lsde->SetPos(0);
+
             eg_opt_t* pEGOpts[2] = { &EG1Options, &EG2Options };
             for (int i = 0; i < 2; ++i) { // NOTE: we reserved a 3rd byte for a potential future EG3 option
                 unsigned char byte = lsde->ReadUint8();
@@ -3236,6 +3246,8 @@ namespace {
 
         RIFF::Chunk* _3lnk = rgnList->GetSubChunk(CHUNK_ID_3LNK);
         if (_3lnk) {
+            _3lnk->SetPos(0);
+
             DimensionRegions = _3lnk->ReadUint32();
             for (int i = 0; i < dimensionBits; i++) {
                 dimension_t dimension = static_cast<dimension_t>(_3lnk->ReadUint8());
@@ -3795,6 +3807,7 @@ namespace {
         }
 
         // delete temporary region
+        tempRgn->DeleteChunks();
         delete tempRgn;
 
         UpdateVelocityTable();
@@ -3934,6 +3947,7 @@ namespace {
         }
 
         // delete temporary region
+        tempRgn->DeleteChunks();
         delete tempRgn;
 
         UpdateVelocityTable();
@@ -4412,6 +4426,8 @@ namespace {
         pGroup = group;
         pChunk = ckScri;
         if (ckScri) { // object is loaded from file ...
+            ckScri->SetPos(0);
+
             // read header
             uint32_t headerSize = ckScri->ReadUint32();
             Compression = (Compression_t) ckScri->ReadUint32();
@@ -4462,6 +4478,18 @@ namespace {
     void Script::SetScriptAsText(const String& text) {
         data.resize(text.size());
         memcpy(&data[0], &text[0], text.size());
+    }
+
+    /** @brief Remove all RIFF chunks associated with this Script object.
+     *
+     * At the moment Script::DeleteChunks() does nothing. It is
+     * recommended to call this method explicitly though from deriving classes's
+     * own overridden implementation of this method to avoid potential future
+     * compatiblity issues.
+     *
+     * See DLS::Storage::DeleteChunks() for details.
+     */
+    void Script::DeleteChunks() {
     }
 
     /**
@@ -4577,6 +4605,18 @@ namespace {
             }
             delete pScripts;
         }
+    }
+
+    /** @brief Remove all RIFF chunks associated with this ScriptGroup object.
+     *
+     * At the moment ScriptGroup::DeleteChunks() does nothing. It is
+     * recommended to call this method explicitly though from deriving classes's
+     * own overridden implementation of this method to avoid potential future
+     * compatiblity issues.
+     *
+     * See DLS::Storage::DeleteChunks() for details.
+     */
+    void ScriptGroup::DeleteChunks() {
     }
 
     /**
@@ -4703,6 +4743,8 @@ namespace {
         if (lart) {
             RIFF::Chunk* _3ewg = lart->GetSubChunk(CHUNK_ID_3EWG);
             if (_3ewg) {
+                _3ewg->SetPos(0);
+
                 EffectSend             = _3ewg->ReadUint16();
                 Attenuation            = _3ewg->ReadInt32();
                 FineTune               = _3ewg->ReadInt16();
@@ -4762,6 +4804,8 @@ namespace {
         if (lst3LS) {
             RIFF::Chunk* ckSCSL = lst3LS->GetSubChunk(CHUNK_ID_SCSL);
             if (ckSCSL) {
+                ckSCSL->SetPos(0);
+
                 int headerSize = ckSCSL->ReadUint32();
                 int slotCount  = ckSCSL->ReadUint32();
                 if (slotCount) {
@@ -5392,9 +5436,23 @@ namespace {
         ::LoadString(pNameChunk, Name);
     }
 
+    /** @brief Destructor.
+     *
+     * Currently this destructor implementation does nothing.
+     */
     Group::~Group() {
-        // remove the chunk associated with this group (if any)
-        if (pNameChunk) pNameChunk->GetParent()->DeleteSubChunk(pNameChunk);
+    }
+
+    /** @brief Remove all RIFF chunks associated with this Group object.
+     *
+     * See DLS::Storage::DeleteChunks() for details.
+     */
+    void Group::DeleteChunks() {
+        // handle own RIFF chunks
+        if (pNameChunk) {
+            pNameChunk->GetParent()->DeleteSubChunk(pNameChunk);
+            pNameChunk = NULL;
+        }
     }
 
     /** @brief Update chunks with current group settings.
@@ -5665,6 +5723,7 @@ namespace {
         if (iter == pSamples->end()) throw gig::Exception("Could not delete sample, could not find given sample");
         if (SamplesIterator != pSamples->end() && *SamplesIterator == pSample) ++SamplesIterator; // avoid iterator invalidation
         pSamples->erase(iter);
+        pSample->DeleteChunks();
         delete pSample;
 
         SampleList::iterator tmp = SamplesIterator;
@@ -5776,7 +5835,8 @@ namespace {
             RIFF::File* file = poolFiles[i];
             RIFF::List* wvpl = file->GetSubList(LIST_TYPE_WVPL);
             if (wvpl) {
-                file_offset_t wvplFileOffset = wvpl->GetFilePos();
+                file_offset_t wvplFileOffset = wvpl->GetFilePos() -
+                                               wvpl->GetPos(); // should be zero, but just to be sure
                 RIFF::List* wave = wvpl->GetFirstSubList();
                 while (wave) {
                     if (wave->GetListType() == LIST_TYPE_WAVE) {
@@ -5999,6 +6059,7 @@ namespace {
         InstrumentList::iterator iter = find(pInstruments->begin(), pInstruments->end(), (DLS::Instrument*) pInstrument);
         if (iter == pInstruments->end()) throw gig::Exception("Could not delete instrument, could not find given instrument");
         pInstruments->erase(iter);
+        pInstrument->DeleteChunks();
         delete pInstrument;
     }
 
@@ -6258,6 +6319,7 @@ namespace {
         }
         // now delete this group object
         pGroups->erase(iter);
+        pGroup->DeleteChunks();
         delete pGroup;
     }
 
@@ -6279,6 +6341,7 @@ namespace {
         // move all members of this group to another group
         pGroup->MoveAll();
         pGroups->erase(iter);
+        pGroup->DeleteChunks();
         delete pGroup;
     }
 
@@ -6378,6 +6441,7 @@ namespace {
             pScriptGroup->DeleteScript(pScriptGroup->GetScript(i));
         if (pScriptGroup->pList)
             pScriptGroup->pList->GetParent()->DeleteSubChunk(pScriptGroup->pList);
+        pScriptGroup->DeleteChunks();
         delete pScriptGroup;
     }
 

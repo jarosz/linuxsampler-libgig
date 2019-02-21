@@ -604,8 +604,8 @@ namespace gig {
             using DLS::Sampler::AddSampleLoop;
             using DLS::Sampler::DeleteSampleLoop;
             // overridden methods
-            virtual void SetGain(int32_t gain);
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void SetGain(int32_t gain) OVERRIDE;
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
             virtual void CopyAssign(const DimensionRegion* orig);
         protected:
             uint8_t* VelocityTable; ///< For velocity dimensions with custom defined zone ranges only: used for fast converting from velocity MIDI value to dimension bit number.
@@ -797,7 +797,7 @@ namespace gig {
             file_offset_t ReadAndLoop(void* pBuffer, file_offset_t SampleCount, playback_state_t* pPlaybackState, DimensionRegion* pDimRgn, buffer_t* pExternalDecompressionBuffer = NULL);
             file_offset_t Write(void* pBuffer, file_offset_t SampleCount);
             Group*        GetGroup() const;
-            virtual void  UpdateChunks(progress_t* pProgress);
+            virtual void  UpdateChunks(progress_t* pProgress) OVERRIDE;
             void CopyAssignMeta(const Sample* orig);
             void CopyAssignWave(const Sample* orig);
             uint32_t GetWaveDataCRC32Checksum();
@@ -891,8 +891,8 @@ namespace gig {
             void             SplitDimensionZone(dimension_t type, int zone);
             void             SetDimensionType(dimension_t oldType, dimension_t newType);
             // overridden methods
-            virtual void     SetKeyRange(uint16_t Low, uint16_t High);
-            virtual void     UpdateChunks(progress_t* pProgress);
+            virtual void     SetKeyRange(uint16_t Low, uint16_t High) OVERRIDE;
+            virtual void     UpdateChunks(progress_t* pProgress) OVERRIDE;
             virtual void     CopyAssign(const Region* orig);
         protected:
             Region(Instrument* pInstrument, RIFF::List* rgnList);
@@ -985,7 +985,7 @@ namespace gig {
         protected:
             MidiRuleCtrlTrigger(RIFF::Chunk* _3ewg);
             MidiRuleCtrlTrigger();
-            void UpdateChunks(uint8_t* pData) const;
+            void UpdateChunks(uint8_t* pData) const OVERRIDE;
             friend class Instrument;
     };
 
@@ -1025,7 +1025,7 @@ namespace gig {
         protected:
             MidiRuleLegato(RIFF::Chunk* _3ewg);
             MidiRuleLegato();
-            void UpdateChunks(uint8_t* pData) const;
+            void UpdateChunks(uint8_t* pData) const OVERRIDE;
             friend class Instrument;
     };
 
@@ -1077,7 +1077,7 @@ namespace gig {
         protected:
             MidiRuleAlternator(RIFF::Chunk* _3ewg);
             MidiRuleAlternator();
-            void UpdateChunks(uint8_t* pData) const;
+            void UpdateChunks(uint8_t* pData) const OVERRIDE;
             friend class Instrument;
     };
 
@@ -1097,7 +1097,7 @@ namespace gig {
     class MidiRuleUnknown : public MidiRule {
         protected:
             MidiRuleUnknown() { }
-            void UpdateChunks(uint8_t* pData) const { }
+            void UpdateChunks(uint8_t* pData) const OVERRIDE { }
             friend class Instrument;
     };
 
@@ -1121,7 +1121,7 @@ namespace gig {
      * - <a href="http://doc.linuxsampler.org/Instrument_Scripts/NKSP_Language/Reference/">NKSP Reference Manual</a>
      * - <a href="http://doc.linuxsampler.org/Gigedit/Managing_Scripts">Using Instrument Scripts with Gigedit</a>
      */
-    class Script {
+    class Script : protected DLS::Storage {
         public:
             enum Encoding_t {
                 ENCODING_ASCII = 0 ///< Standard 8 bit US ASCII character encoding (default).
@@ -1147,7 +1147,8 @@ namespace gig {
         protected:
             Script(ScriptGroup* group, RIFF::Chunk* ckScri);
             virtual ~Script();
-            void UpdateChunks(progress_t* pProgress);
+            void UpdateChunks(progress_t* pProgress) OVERRIDE;
+            void DeleteChunks() OVERRIDE;
             void RemoveAllScriptReferences();
             friend class ScriptGroup;
             friend class Instrument;
@@ -1169,7 +1170,7 @@ namespace gig {
      * not available in the GigaStudio 4 software. It is currently only
      * supported by LinuxSampler and gigedit.
      */
-    class ScriptGroup {
+    class ScriptGroup : protected DLS::Storage {
         public:
             String   Name; ///< Name of this script group. For example to be displayed in an instrument editor.
 
@@ -1180,7 +1181,8 @@ namespace gig {
             ScriptGroup(File* file, RIFF::List* lstRTIS);
             virtual ~ScriptGroup();
             void LoadScripts();
-            void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
+            virtual void DeleteChunks() OVERRIDE;
             friend class Script;
             friend class File;
         private:
@@ -1233,7 +1235,7 @@ namespace gig {
             Region*   AddRegion();
             void      DeleteRegion(Region* pRegion);
             void      MoveTo(Instrument* dst);
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
             virtual void CopyAssign(const Instrument* orig);
             // own methods
             Region*   GetRegion(unsigned int Key);
@@ -1287,7 +1289,7 @@ namespace gig {
      * there is always at least one Group in a .gig file, no matter if you
      * created one yet or not.
      */
-    class Group {
+    class Group : public DLS::Storage {
         public:
             String Name; ///< Stores the name of this Group.
 
@@ -1297,7 +1299,8 @@ namespace gig {
         protected:
             Group(File* file, RIFF::Chunk* ck3gnm);
             virtual ~Group();
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
+            virtual void DeleteChunks() OVERRIDE;
             void MoveAll();
             friend class File;
         private:
@@ -1391,13 +1394,13 @@ namespace gig {
             ScriptGroup* AddScriptGroup();
             void        DeleteScriptGroup(ScriptGroup* pGroup);
             virtual    ~File();
-            virtual void UpdateChunks(progress_t* pProgress);
+            virtual void UpdateChunks(progress_t* pProgress) OVERRIDE;
         protected:
             // overridden protected methods from DLS::File
-            virtual void LoadSamples();
-            virtual void LoadInstruments();
+            virtual void LoadSamples() OVERRIDE;
+            virtual void LoadInstruments() OVERRIDE;
             virtual void LoadGroups();
-            virtual void UpdateFileOffsets();
+            virtual void UpdateFileOffsets() OVERRIDE;
             // own protected methods
             virtual void LoadSamples(progress_t* pProgress);
             virtual void LoadInstruments(progress_t* pProgress);
