@@ -39,6 +39,8 @@
 #ifndef OVERRIDE
 # if defined(__cplusplus) && __cplusplus >= 201103L
 #  define OVERRIDE override
+# else
+#  define OVERRIDE
 # endif
 #endif
 
