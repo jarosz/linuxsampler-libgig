@@ -174,6 +174,9 @@ namespace sf2 {
         END_OPER
     } SFGeneratorType;
 
+    class File;
+    class Instrument;
+
     class Modulator {
         public:
 
@@ -295,7 +298,7 @@ namespace sf2 {
 
             String Name;
 
-            Sample(RIFF::Chunk* ck, RIFF::Chunk* pCkSmpl, RIFF::Chunk* pCkSm24);
+            Sample(File* file, RIFF::Chunk* ck, RIFF::Chunk* pCkSmpl, RIFF::Chunk* pCkSm24);
 
             String  GetName() { return Name; }
             int     GetChannelCount();
@@ -303,6 +306,7 @@ namespace sf2 {
             int     GetFrameSize();
             bool    HasLoops();
             bool    IsUnpitched() { return OriginalPitch == 255; }
+            File*   GetFile() { return pFile; }
 
             buffer_t  LoadSampleData();
             buffer_t  LoadSampleData(unsigned long SampleCount);
@@ -341,10 +345,9 @@ namespace sf2 {
                                   * sample header index of the associated right or left stereo
                                   * sample respectively; zero otherwise. */
             uint16_t SampleType;
-    };
 
-    class File;
-    class Instrument;
+            File*    pFile;
+    };
 
     /**
      * Instrument zone
@@ -533,6 +536,7 @@ namespace sf2 {
             Sample*      GetSample(int idx);
             void         DeleteSample(Sample* pSample);
             bool         HasSamples();
+            RIFF::File*  GetRiffFile();
 
             friend class Region;
             friend class Instrument;

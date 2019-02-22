@@ -65,8 +65,8 @@ namespace RIFF {
     }
 
     /**
-     * Divides this progress task into the requested amount of sub-progress
-     * tasks and returns a vector with those subprogress tasks.
+     * Divides this progress task into the requested amount of equal weighted
+     * sub-progress tasks and returns a vector with those subprogress tasks.
      *
      * @param iSubtasks - total amount sub tasks this task should be subdivided
      * @returns subtasks
@@ -76,6 +76,45 @@ namespace RIFF {
         for (int i = 0; i < iSubtasks; ++i) {
             progress_t p;
             __divide_progress(this, &p, iSubtasks, i);
+            v.push_back(p);
+        }
+        return v;
+    }
+
+    /**
+     * Divides this progress task into the requested amount of sub-progress
+     * tasks, where each one of those new sub-progress tasks is created with its
+     * requested individual weight / portion, and finally returns a vector
+     * with those new subprogress tasks.
+     *
+     * The amount of subprogresses to be created is determined by this method
+     * by calling @c vSubTaskPortions.size() .
+     *
+     * Example: consider you wanted to create 3 subprogresses where the 1st
+     * subtask should be assigned 10% of the new 3 subprogresses' overall
+     * progress, the 2nd subtask should be assigned 50% of the new 3
+     * subprogresses' overall progress, and the 3rd subtask should be assigned
+     * 40%, then you might call this method like this:
+     * @code
+     * std::vector<progress_t> subprogresses = progress.subdivide({0.1, 0.5, 0.4});
+     * @endcode
+     *
+     * @param vSubTaskPortions - amount and individual weight of subtasks to be
+     *                           created
+     * @returns subtasks
+     */
+    std::vector<progress_t> progress_t::subdivide(std::vector<float> vSubTaskPortions) {
+        float fTotal = 0.f; // usually 1.0, but we sum the portions up below to be sure
+        for (int i = 0; i < vSubTaskPortions.size(); ++i)
+            fTotal += vSubTaskPortions[i];
+
+        float fLow = 0.f, fHigh = 0.f;
+        std::vector<progress_t> v;
+        for (int i = 0; i < vSubTaskPortions.size(); ++i) {
+            fLow  = fHigh;
+            fHigh = vSubTaskPortions[i];
+            progress_t p;
+            __divide_progress(this, &p, fTotal, fLow, fHigh);
             v.push_back(p);
         }
         return v;

@@ -221,6 +221,7 @@ namespace RIFF {
         float __range_max;             ///< Only for internal usage, do not modify!
         progress_t();
         std::vector<progress_t> subdivide(int iSubtasks);
+        std::vector<progress_t> subdivide(std::vector<float> vSubTaskPortions);
     };
 
     /** @brief Ordinary RIFF Chunk
@@ -238,7 +239,7 @@ namespace RIFF {
             file_offset_t  GetSize() const { return ullCurrentChunkSize; } ///< Chunk size in bytes (without header, thus the chunk data body)
             file_offset_t  GetNewSize() const { return ullNewChunkSize; } ///< New chunk size if it was modified with Resize(), otherwise value returned will be equal to GetSize().
             file_offset_t  GetPos() const { return ullPos; }            ///< Position within the chunk data body (starting with 0).
-            file_offset_t  GetFilePos() const { return ullStartPos + ullPos; } ///< Current, actual offset of chunk data body start in file.
+            file_offset_t  GetFilePos() const { return ullStartPos + ullPos; } ///< Current, actual offset in file of current chunk data body read/write position.
             file_offset_t  SetPos(file_offset_t Where, stream_whence_t Whence = stream_start);
             file_offset_t  RemainingBytes() const;
             stream_state_t GetState() const;

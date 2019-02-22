@@ -147,7 +147,8 @@ namespace sf2 {
         ::LoadString(ck, s); // function from helper.h
     }
 
-    Sample::Sample(RIFF::Chunk* ck, RIFF::Chunk* pCkSmpl, RIFF::Chunk* pCkSm24) {
+    Sample::Sample(File* file, RIFF::Chunk* ck, RIFF::Chunk* pCkSmpl, RIFF::Chunk* pCkSm24) {
+        this->pFile = file;
         this->pCkSmpl = pCkSmpl;
         this->pCkSm24 = pCkSm24;
 
@@ -1122,7 +1123,7 @@ namespace sf2 {
         }
         count = int(ck->GetSize() / 46);
         for (int i = 0; i < count; i++) {
-            Samples.push_back(new Sample(ck, pCkSmpl, pCkSm24));
+            Samples.push_back(new Sample(this, ck, pCkSmpl, pCkSm24));
         }
 
         // Loading instrument regions
@@ -1249,6 +1250,10 @@ namespace sf2 {
         }
 
         return false;
+    }
+
+    RIFF::File* File::GetRiffFile() {
+        return pRIFF;
     }
 
     /**

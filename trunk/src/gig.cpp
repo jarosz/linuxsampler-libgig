@@ -6705,8 +6705,8 @@ namespace {
     }
 
     /**
-     * Enable / disable automatic loading. By default this properyt is
-     * enabled and all informations are loaded automatically. However
+     * Enable / disable automatic loading. By default this property is
+     * enabled and every information is loaded automatically. However
      * loading all Regions, DimensionRegions and especially samples might
      * take a long time for large .gig files, and sometimes one might only
      * be interested in retrieving very superficial informations like the
@@ -6714,10 +6714,10 @@ namespace {
      * automatic loading to avoid very slow response times.
      *
      * @e CAUTION: by disabling this property many pointers (i.e. sample
-     * references) and informations will have invalid or even undefined
+     * references) and attributes will have invalid or even undefined
      * data! This feature is currently only intended for retrieving very
-     * superficial informations in a very fast way. Don't use it to retrieve
-     * details like synthesis informations or even to modify .gig files!
+     * superficial information in a very fast way. Don't use it to retrieve
+     * details like synthesis information or even to modify .gig files!
      */
     void File::SetAutoLoad(bool b) {
         bAutoLoad = b;

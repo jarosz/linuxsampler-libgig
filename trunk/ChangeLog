@@ -34,12 +34,18 @@ Version SVN trunk (?)
     - Introduced support for writing extension files (.gx01, .gx02, ...)
       (original patch by Ivan Maguidhir).
     - Many gig classes derive now from DLS::Storage (see DLS changes below).
+    - Added File::GetRiffFile() method.
 
   * src/DLS.cpp, src/DLS.h:
     - File: Fixed implicitly allocated RIFF::File object never been freed.
     - Added new abstract interface base class DLS::Storage which is derived by
       the respective classes for implementing (the old) UpdateChunks() and the
       new DeleteChunks() method.
+    - Added File::GetRiffFile() method.
+
+  * src/sf2.cpp, src/sf2.h:
+    - Added Sample::GetFile() method.
+    - Added File::GetRiffFile() method.
 
   * src/Serialization.cpp, src/Serialization.h:
     - Hide pure internal declarations from header file to avoid numerous
@@ -52,6 +58,10 @@ Version SVN trunk (?)
       caused a resource leak
     - Avoid compiler warning when building for 32 bit windows.
     - Added new method progress_t::subdivide().
+    - Fix: API doc comment for Chunk::GetFilePos() was completely wrong.
+    - progress_t: Added a 2nd (overridden) progress_t::subdivide() method which
+      allows a more fine graded control into which portions the subtasks are
+      divided to.
 
   * src/tools/gigdump.cpp:
     - Added command line option --instrument-names which causes only

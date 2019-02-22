@@ -1363,6 +1363,7 @@ namespace gig {
             using DLS::File::Save;
             using DLS::File::GetFileName;
             using DLS::File::SetFileName;
+            using DLS::File::GetRiffFile;
             // overridden  methods
             File();
             File(RIFF::File* pRIFF);

@@ -306,6 +306,18 @@ inline void __divide_progress(RIFF::progress_t* pParentProgress, RIFF::progress_
     }
 }
 
+// private helper function to divide a progress into subprogresses
+inline void __divide_progress(RIFF::progress_t* pParentProgress, RIFF::progress_t* pSubProgress, float total, float lo, float hi) {
+    if (pParentProgress && pParentProgress->callback) {
+        const float totalrange    = pParentProgress->__range_max - pParentProgress->__range_min;
+        pSubProgress->callback    = pParentProgress->callback;
+        pSubProgress->custom      = pParentProgress->custom;
+        pSubProgress->abort       = pParentProgress->abort;
+        pSubProgress->__range_min = pParentProgress->__range_min + totalrange * (lo / total);
+        pSubProgress->__range_max = pSubProgress->__range_min + totalrange * ((hi-lo) / total);
+    }
+}
+
 #ifdef _WIN32
 # define NATIVE_PATH_SEPARATOR '\\'
 #else

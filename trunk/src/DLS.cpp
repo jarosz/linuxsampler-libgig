@@ -1798,6 +1798,14 @@ namespace DLS {
     }
 
     /**
+     * Returns the underlying RIFF::File used for persistency of this DLS::File
+     * object.
+     */
+    RIFF::File* File::GetRiffFile() {
+        return pRIFF;
+    }
+
+    /**
      * Returns extension file of given index. Extension files are used
      * sometimes to circumvent the 2 GB file size limit of the RIFF format and
      * of certain operating systems in general. In this case, instead of just
