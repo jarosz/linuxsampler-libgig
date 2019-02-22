@@ -403,6 +403,9 @@ namespace Serialization {
      * In the latter example @c customTypeName(true) would return for both
      * @c foo and @c pFoo the string @c "Foo" as return value of this method.
      *
+     * @b Windows: please note that the current implementation of this method
+     * on Windows is @b not thread safe!
+     *
      * @see isPointer(), baseTypeName()
      */
     String DataType::customTypeName(bool demangle) const {
@@ -411,6 +414,7 @@ namespace Serialization {
         const size_t MAXLENGTH = 1024;
         char result[MAXLENGTH];
 
+        //FIXME: calling UnDecorateSymbolName() is not thread safe!
         //Skip the first char
         size_t size = UnDecorateSymbolName(m_customTypeName.c_str() +1, result, MAXLENGTH, UNDNAME_32_BIT_DECODE | UNDNAME_NO_ARGUMENTS);
         if (size)
