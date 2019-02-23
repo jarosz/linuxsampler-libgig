@@ -2087,7 +2087,6 @@ namespace DLS {
         // save extension files (if required)
         if (!ExtensionFiles.empty()) {
             // for assembling path of extension files to be saved to
-            const std::string folder = parentPath(Path);
             const std::string baseName = pathWithoutExtension(Path);
             // save the individual extension files
             std::list<RIFF::File*>::iterator it = ExtensionFiles.begin();
@@ -2102,8 +2101,8 @@ namespace DLS {
                 // not work for saving new gigs created from scratch
                 const std::string oldName = (*it)->GetFileName();
                 const bool isGigaPulseFile = (extensionOfPath(oldName) == "gx99");
-                std::string ext = (isGigaPulseFile) ? ".gx99" : strPrint(".gx02d", i+1);
-                std::string newPath = concatPath(folder, baseName) + ext;
+                std::string ext = (isGigaPulseFile) ? ".gx99" : strPrint(".gx%02d", i+1);
+                std::string newPath = baseName + ext;
                 // save extension file to its new location
                 (*it)->Save(newPath, &subprogress);
             }

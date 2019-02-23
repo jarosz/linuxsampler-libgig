@@ -317,10 +317,22 @@ inline void __divide_progress(RIFF::progress_t* pParentProgress, RIFF::progress_
     }
 }
 
-#ifdef _WIN32
-# define NATIVE_PATH_SEPARATOR '\\'
-#else
-# define NATIVE_PATH_SEPARATOR '/'
+/// Removes one or more consecutive occurences of @a needle from the end of @a haystack.
+inline std::string strip2ndFromEndOf1st(const std::string haystack, char needle) {
+    if (haystack.empty()) return haystack;
+    if (*haystack.rbegin() != needle) return haystack;
+    for (int i = haystack.length() - 1; i >= 0; --i)
+        if (haystack[i] != needle)
+            return haystack.substr(0, i+1);
+    return "";
+}
+
+#ifndef NATIVE_PATH_SEPARATOR
+# ifdef _WIN32
+#  define NATIVE_PATH_SEPARATOR '\\'
+# else
+#  define NATIVE_PATH_SEPARATOR '/'
+# endif
 #endif
 
 /**
@@ -328,8 +340,25 @@ inline void __divide_progress(RIFF::progress_t* pParentProgress, RIFF::progress_
  * passing "/some/path" would return "/some".
  */
 inline std::string parentPath(const std::string path) {
-    std::size_t pos = path.find_last_of(NATIVE_PATH_SEPARATOR);
-    return (pos == std::string::npos) ? path : path.substr(0, pos);
+    if (path.empty()) return path;
+    std::string s = strip2ndFromEndOf1st(path, NATIVE_PATH_SEPARATOR);
+    printf("\tstrip('%s')  =>  '%s'\n", path.c_str(), s.c_str());
+    if (s.empty()) {
+        s.push_back(NATIVE_PATH_SEPARATOR); // i.e. return "/"
+        return s;
+    }
+    #if defined(_WIN32)
+    if (s.length() == 2 && s[1] == ':')
+        return s;
+    #endif
+    std::size_t pos = s.find_last_of(NATIVE_PATH_SEPARATOR);
+    if (pos == std::string::npos) return "";
+    if (pos == 0) {
+        s = "";
+        s.push_back(NATIVE_PATH_SEPARATOR); // i.e. return "/"
+        return s;
+    }
+    return s.substr(0, pos);
 }
 
 /**
@@ -337,6 +366,10 @@ inline std::string parentPath(const std::string path) {
  * "/some/path" would return "path".
  */
 inline std::string lastPathComponent(const std::string path) {
+    #if defined(_WIN32)
+    if (path.length() == 2 && path[1] == ':')
+        return "";
+    #endif
     std::size_t pos = path.find_last_of(NATIVE_PATH_SEPARATOR);
     return (pos == std::string::npos) ? path : path.substr(pos+1);
 }
@@ -348,7 +381,7 @@ inline std::string lastPathComponent(const std::string path) {
 inline std::string pathWithoutExtension(const std::string path) {
     std::size_t posSep = path.find_last_of(NATIVE_PATH_SEPARATOR);
     std::size_t posBase = (posSep == std::string::npos) ? 0 : posSep+1;
-    std::size_t posDot = path.find_last_of(".", posBase);
+    std::size_t posDot = path.find_last_of(".");
     return (posDot != std::string::npos && posDot > posBase)
            ? path.substr(0, posDot) : path;
 }
@@ -360,7 +393,7 @@ inline std::string pathWithoutExtension(const std::string path) {
 inline std::string extensionOfPath(const std::string path) {
     std::size_t posSep = path.find_last_of(NATIVE_PATH_SEPARATOR);
     std::size_t posBase = (posSep == std::string::npos) ? 0 : posSep+1;
-    std::size_t posDot = path.find_last_of(".", posBase);
+    std::size_t posDot = path.find_last_of(".");
     return (posDot != std::string::npos && posDot > posBase)
            ? path.substr(posDot+1) : "";
 }
