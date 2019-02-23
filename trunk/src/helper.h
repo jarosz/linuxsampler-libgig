@@ -317,6 +317,15 @@ inline void __divide_progress(RIFF::progress_t* pParentProgress, RIFF::progress_
     }
 }
 
+
+/*****************************************************************************
+ * Any problems with any of the following helper functions?                  *
+ *                                                                           *
+ * Then please first have a look at their current TEST CASES at              *
+ * src/testcases/HelperTest.cpp as basis for your modifications!             *
+ *****************************************************************************/
+
+
 /// Removes one or more consecutive occurences of @a needle from the end of @a haystack.
 inline std::string strip2ndFromEndOf1st(const std::string haystack, char needle) {
     if (haystack.empty()) return haystack;
@@ -342,7 +351,6 @@ inline std::string strip2ndFromEndOf1st(const std::string haystack, char needle)
 inline std::string parentPath(const std::string path) {
     if (path.empty()) return path;
     std::string s = strip2ndFromEndOf1st(path, NATIVE_PATH_SEPARATOR);
-    printf("\tstrip('%s')  =>  '%s'\n", path.c_str(), s.c_str());
     if (s.empty()) {
         s.push_back(NATIVE_PATH_SEPARATOR); // i.e. return "/"
         return s;
