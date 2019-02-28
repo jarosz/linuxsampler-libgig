@@ -11,6 +11,8 @@ Version SVN trunk (?)
     - Fix: Many methods of DLS/gig classes assumed a RIFF chunk read position
       of zero; which is unsafe per se.
     - Added C++11 "override" keyword where appropriate.
+    - Fixed crash in RIFF, DLS and gig classes which occurred on certain
+      of their actions when not passing a progress_t callback structure.
 
   * src/gig.cpp, src/gig.h:
     - Fixed Doxygen API comments for enum types (currently latest Doxygen

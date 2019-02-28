@@ -4789,7 +4789,8 @@ namespace {
                 RIFF::List* rgn = lrgn->GetFirstSubList();
                 while (rgn) {
                     if (rgn->GetListType() == LIST_TYPE_RGN) {
-                        __notify_progress(pProgress, (float) pRegions->size() / (float) Regions);
+                        if (pProgress)
+                            __notify_progress(pProgress, (float) pRegions->size() / (float) Regions);
                         pRegions->push_back(new Region(this, rgn));
                     }
                     rgn = lrgn->GetNextSubList();
@@ -4823,7 +4824,8 @@ namespace {
             }
         }
 
-        __notify_progress(pProgress, 1.0f); // notify done
+        if (pProgress)
+            __notify_progress(pProgress, 1.0f); // notify done
     }
 
     void Instrument::UpdateRegionKeyTable() {
@@ -5841,8 +5843,10 @@ namespace {
                 while (wave) {
                     if (wave->GetListType() == LIST_TYPE_WAVE) {
                         // notify current progress
-                        const float subprogress = (float) iSampleIndex / (float) iTotalSamples;
-                        __notify_progress(pProgress, subprogress);
+                        if (pProgress) {
+                            const float subprogress = (float) iSampleIndex / (float) iTotalSamples;
+                            __notify_progress(pProgress, subprogress);
+                        }
 
                         file_offset_t waveFileOffset = wave->GetFilePos();
                         pSamples->push_back(new Sample(this, wave, waveFileOffset - wvplFileOffset, i, iSampleIndex));
@@ -5854,7 +5858,8 @@ namespace {
             }
         }
 
-        __notify_progress(pProgress, 1.0); // notify done
+        if (pProgress)
+            __notify_progress(pProgress, 1.0); // notify done
     }
 
     Instrument* File::GetFirstInstrument() {
@@ -5895,22 +5900,31 @@ namespace {
         if (!pInstruments) {
             // TODO: hack - we simply load ALL samples here, it would have been done in the Region constructor anyway (ATM)
 
-            // sample loading subtask
-            progress_t subprogress;
-            __divide_progress(pProgress, &subprogress, 3.0f, 0.0f); // randomly schedule 33% for this subtask
-            __notify_progress(&subprogress, 0.0f);
-            if (GetAutoLoad())
-                GetFirstSample(&subprogress); // now force all samples to be loaded
-            __notify_progress(&subprogress, 1.0f);
+            if (pProgress) {
+                // sample loading subtask
+                progress_t subprogress;
+                __divide_progress(pProgress, &subprogress, 3.0f, 0.0f); // randomly schedule 33% for this subtask
+                __notify_progress(&subprogress, 0.0f);
+                if (GetAutoLoad())
+                    GetFirstSample(&subprogress); // now force all samples to be loaded
+                __notify_progress(&subprogress, 1.0f);
 
-            // instrument loading subtask
-            if (pProgress && pProgress->callback) {
-                subprogress.__range_min = subprogress.__range_max;
-                subprogress.__range_max = pProgress->__range_max; // schedule remaining percentage for this subtask
+                // instrument loading subtask
+                if (pProgress->callback) {
+                    subprogress.__range_min = subprogress.__range_max;
+                    subprogress.__range_max = pProgress->__range_max; // schedule remaining percentage for this subtask
+                }
+                __notify_progress(&subprogress, 0.0f);
+                LoadInstruments(&subprogress);
+                __notify_progress(&subprogress, 1.0f);
+            } else {
+                // sample loading subtask
+                if (GetAutoLoad())
+                    GetFirstSample(); // now force all samples to be loaded
+
+                // instrument loading subtask
+                LoadInstruments();
             }
-            __notify_progress(&subprogress, 0.0f);
-            LoadInstruments(&subprogress);
-            __notify_progress(&subprogress, 1.0f);
         }
         if (!pInstruments) return NULL;
         InstrumentsIterator = pInstruments->begin();
@@ -6075,21 +6089,26 @@ namespace {
             RIFF::List* lstInstr = lstInstruments->GetFirstSubList();
             while (lstInstr) {
                 if (lstInstr->GetListType() == LIST_TYPE_INS) {
-                    // notify current progress
-                    const float localProgress = (float) iInstrumentIndex / (float) Instruments;
-                    __notify_progress(pProgress, localProgress);
+                    if (pProgress) {
+                        // notify current progress
+                        const float localProgress = (float) iInstrumentIndex / (float) Instruments;
+                        __notify_progress(pProgress, localProgress);
 
-                    // divide local progress into subprogress for loading current Instrument
-                    progress_t subprogress;
-                    __divide_progress(pProgress, &subprogress, Instruments, iInstrumentIndex);
+                        // divide local progress into subprogress for loading current Instrument
+                        progress_t subprogress;
+                        __divide_progress(pProgress, &subprogress, Instruments, iInstrumentIndex);
 
-                    pInstruments->push_back(new Instrument(this, lstInstr, &subprogress));
+                        pInstruments->push_back(new Instrument(this, lstInstr, &subprogress));
+                    } else {
+                        pInstruments->push_back(new Instrument(this, lstInstr));
+                    }
 
                     iInstrumentIndex++;
                 }
                 lstInstr = lstInstruments->GetNextSubList();
             }
-            __notify_progress(pProgress, 1.0); // notify done
+            if (pProgress)
+                __notify_progress(pProgress, 1.0); // notify done
         }
     }
 

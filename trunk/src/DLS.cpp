@@ -1445,13 +1445,17 @@ namespace DLS {
         RegionList::iterator iter = pRegions->begin();
         RegionList::iterator end  = pRegions->end();
         for (int i = 0; iter != end; ++iter, ++i) {
-            // divide local progress into subprogress
-            progress_t subprogress;
-            __divide_progress(pProgress, &subprogress, pRegions->size(), i);
-            // do the actual work
-            (*iter)->UpdateChunks(&subprogress);
+            if (pProgress) {
+                // divide local progress into subprogress
+                progress_t subprogress;
+                __divide_progress(pProgress, &subprogress, pRegions->size(), i);
+                // do the actual work
+                (*iter)->UpdateChunks(&subprogress);
+            } else
+                (*iter)->UpdateChunks(NULL);
         }
-        __notify_progress(pProgress, 1.0); // notify done
+        if (pProgress)
+            __notify_progress(pProgress, 1.0); // notify done
     }
 
     /** @brief Destructor.
@@ -1878,22 +1882,30 @@ namespace DLS {
 
         // update instrument's chunks
         if (pInstruments) {
-            // divide local progress into subprogress
-            progress_t subprogress;
-            __divide_progress(pProgress, &subprogress, 20.f, 0.f); // arbitrarily subdivided into 5% of total progress
+            if (pProgress) {
+                // divide local progress into subprogress
+                progress_t subprogress;
+                __divide_progress(pProgress, &subprogress, 20.f, 0.f); // arbitrarily subdivided into 5% of total progress
 
-            // do the actual work
-            InstrumentList::iterator iter = pInstruments->begin();
-            InstrumentList::iterator end  = pInstruments->end();
-            for (int i = 0; iter != end; ++iter, ++i) {
-                // divide subprogress into sub-subprogress
-                progress_t subsubprogress;
-                __divide_progress(&subprogress, &subsubprogress, pInstruments->size(), i);
                 // do the actual work
-                (*iter)->UpdateChunks(&subsubprogress);
-            }
+                InstrumentList::iterator iter = pInstruments->begin();
+                InstrumentList::iterator end  = pInstruments->end();
+                for (int i = 0; iter != end; ++iter, ++i) {
+                    // divide subprogress into sub-subprogress
+                    progress_t subsubprogress;
+                    __divide_progress(&subprogress, &subsubprogress, pInstruments->size(), i);
+                    // do the actual work
+                    (*iter)->UpdateChunks(&subsubprogress);
+                }
 
-            __notify_progress(&subprogress, 1.0); // notify subprogress done
+                __notify_progress(&subprogress, 1.0); // notify subprogress done
+            } else {
+                InstrumentList::iterator iter = pInstruments->begin();
+                InstrumentList::iterator end  = pInstruments->end();
+                for (int i = 0; iter != end; ++iter, ++i) {
+                    (*iter)->UpdateChunks(NULL);
+                }
+            }
         }
 
         // update 'ptbl' chunk
@@ -1911,22 +1923,30 @@ namespace DLS {
 
         // update sample's chunks
         if (pSamples) {
-            // divide local progress into subprogress
-            progress_t subprogress;
-            __divide_progress(pProgress, &subprogress, 20.f, 1.f); // arbitrarily subdivided into 95% of total progress
+            if (pProgress) {
+                // divide local progress into subprogress
+                progress_t subprogress;
+                __divide_progress(pProgress, &subprogress, 20.f, 1.f); // arbitrarily subdivided into 95% of total progress
 
-            // do the actual work
-            SampleList::iterator iter = pSamples->begin();
-            SampleList::iterator end  = pSamples->end();
-            for (int i = 0; iter != end; ++iter, ++i) {
-                // divide subprogress into sub-subprogress
-                progress_t subsubprogress;
-                __divide_progress(&subprogress, &subsubprogress, pSamples->size(), i);
                 // do the actual work
-                (*iter)->UpdateChunks(&subsubprogress);
-            }
+                SampleList::iterator iter = pSamples->begin();
+                SampleList::iterator end  = pSamples->end();
+                for (int i = 0; iter != end; ++iter, ++i) {
+                    // divide subprogress into sub-subprogress
+                    progress_t subsubprogress;
+                    __divide_progress(&subprogress, &subsubprogress, pSamples->size(), i);
+                    // do the actual work
+                    (*iter)->UpdateChunks(&subsubprogress);
+                }
 
-            __notify_progress(&subprogress, 1.0); // notify subprogress done
+                __notify_progress(&subprogress, 1.0); // notify subprogress done
+            } else {
+                SampleList::iterator iter = pSamples->begin();
+                SampleList::iterator end  = pSamples->end();
+                for (int i = 0; iter != end; ++iter, ++i) {
+                    (*iter)->UpdateChunks(NULL);
+                }
+            }
         }
 
         // if there are any extension files, gather which ones are regular
@@ -2062,7 +2082,8 @@ namespace DLS {
             ptbl->Resize(iPtblSize);
         }
 
-        __notify_progress(pProgress, 1.0); // notify done
+        if (pProgress)
+            __notify_progress(pProgress, 1.0); // notify done
     }
 
     /** @brief Save changes to another file.
@@ -2091,9 +2112,6 @@ namespace DLS {
             // save the individual extension files
             std::list<RIFF::File*>::iterator it = ExtensionFiles.begin();
             for (int i = 0; it != ExtensionFiles.end(); ++i, ++it) {
-                // divide local progress into subprogress
-                progress_t subprogress;
-                __divide_progress(pProgress, &subprogress, tasks, 0.f + i); // subdivided into amount of extension files
                 //FIXME: the .gx99 file is always used by GSt for convolution
                 // data (GigaPulse); so we should better detect by subchunk
                 // whether the extension file is intended for convolution
@@ -2104,26 +2122,39 @@ namespace DLS {
                 std::string ext = (isGigaPulseFile) ? ".gx99" : strPrint(".gx%02d", i+1);
                 std::string newPath = baseName + ext;
                 // save extension file to its new location
-                (*it)->Save(newPath, &subprogress);
+                if (pProgress) {
+                     // divide local progress into subprogress
+                    progress_t subprogress;
+                    __divide_progress(pProgress, &subprogress, tasks, 0.f + i); // subdivided into amount of extension files
+                    // do the actual work
+                    (*it)->Save(newPath, &subprogress);
+                } else
+                    (*it)->Save(newPath);
             }
         }
 
-        {
+        if (pProgress) {
             // divide local progress into subprogress
             progress_t subprogress;
             __divide_progress(pProgress, &subprogress, tasks, 1.f + nExtFiles); // arbitrarily subdivided into 50% (minus extension files progress)
             // do the actual work
             UpdateChunks(&subprogress);
-        }
-        {
+        } else
+            UpdateChunks(NULL);
+
+        if (pProgress) {
             // divide local progress into subprogress
             progress_t subprogress;
             __divide_progress(pProgress, &subprogress, tasks, 2.f + nExtFiles); // arbitrarily subdivided into 50% (minus extension files progress)
             // do the actual work
             pRIFF->Save(Path, &subprogress);
-        }
+        } else
+            pRIFF->Save(Path);
+
         UpdateFileOffsets();
-        __notify_progress(pProgress, 1.0); // notify done
+
+        if (pProgress)
+            __notify_progress(pProgress, 1.0); // notify done
     }
 
     /** @brief Save changes to same file.
@@ -2145,30 +2176,40 @@ namespace DLS {
         if (!ExtensionFiles.empty()) {
             std::list<RIFF::File*>::iterator it = ExtensionFiles.begin();
             for (int i = 0; it != ExtensionFiles.end(); ++i, ++it) {
-                // divide local progress into subprogress
-                progress_t subprogress;
-                __divide_progress(pProgress, &subprogress, tasks, 0.f + i); // subdivided into amount of extension files
                 // save extension file
-                (*it)->Save(&subprogress);
+                if (pProgress) {
+                    // divide local progress into subprogress
+                    progress_t subprogress;
+                    __divide_progress(pProgress, &subprogress, tasks, 0.f + i); // subdivided into amount of extension files
+                    // do the actual work
+                    (*it)->Save(&subprogress);
+                } else
+                    (*it)->Save();
             }
         }
 
-        {
+        if (pProgress) {
             // divide local progress into subprogress
             progress_t subprogress;
             __divide_progress(pProgress, &subprogress, tasks, 1.f + nExtFiles); // arbitrarily subdivided into 50% (minus extension files progress)
             // do the actual work
             UpdateChunks(&subprogress);
-        }
-        {
+        } else
+            UpdateChunks(NULL);
+
+        if (pProgress) {
             // divide local progress into subprogress
             progress_t subprogress;
             __divide_progress(pProgress, &subprogress, tasks, 2.f + nExtFiles); // arbitrarily subdivided into 50% (minus extension files progress)
             // do the actual work
             pRIFF->Save(&subprogress);
-        }
+        } else
+            pRIFF->Save();
+
         UpdateFileOffsets();
-        __notify_progress(pProgress, 1.0); // notify done
+
+        if (pProgress)
+            __notify_progress(pProgress, 1.0); // notify done
     }
 
     /** @brief Updates all file offsets stored all over the file.
